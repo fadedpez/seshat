@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UObject/Interface.h"
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
 #include "../RPGCoreTypes.h"

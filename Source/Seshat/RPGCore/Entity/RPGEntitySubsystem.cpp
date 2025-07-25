@@ -1,4 +1,5 @@
 #include "RPGEntitySubsystem.h"
+#include "RPGEntity.h"
 #include "../../Seshat.h"
 #include "Misc/Paths.h"
 

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "UObject/ScriptInterface.h"
 #include "RPGCore/Entity/RPGEntity.h"
 #include "RPGDiceSubsystem.generated.h"
 

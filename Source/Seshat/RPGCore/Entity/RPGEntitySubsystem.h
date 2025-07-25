@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
-#include "RPGEntity.h"
+#include "UObject/ScriptInterface.h"
 #include "../RPGCoreTypes.h"
 #include "HAL/PlatformProcess.h"
 #include "RPGEntitySubsystem.generated.h"
