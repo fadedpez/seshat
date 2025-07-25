@@ -1,0 +1,14 @@
+{
+	"Targets": [
+		{
+			"Name": "Seshat",
+			"Path": "..\\Source\\Seshat.Target.cs",
+			"Type": "Game"
+		},
+		{
+			"Name": "SeshatEditor",
+			"Path": "..\\Source\\SeshatEditor.Target.cs",
+			"Type": "Editor"
+		}
+	]
+}

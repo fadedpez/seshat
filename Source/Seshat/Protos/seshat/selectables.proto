@@ -1,0 +1,290 @@
+syntax = "proto3";
+
+package seshat;
+
+import "seshat/common.proto";
+
+option go_package = "github.com/seshat/protos/seshat";
+
+// Weighted selection service - exposes all selectables toolkit functionality
+service SelectablesService {
+  // Basic table operations
+  rpc CreateTable(CreateTableRequest) returns (CreateTableResponse);
+  rpc AddItem(AddItemRequest) returns (AddItemResponse);
+  rpc RemoveItem(RemoveItemRequest) returns (RemoveItemResponse);
+  rpc UpdateWeight(UpdateWeightRequest) returns (UpdateWeightResponse);
+  
+  // Selection operations
+  rpc Select(SelectRequest) returns (SelectResponse);
+  rpc SelectMultiple(SelectMultipleRequest) returns (SelectMultipleResponse);
+  rpc SelectWithContext(SelectWithContextRequest) returns (SelectWithContextResponse);
+  
+  // Table management
+  rpc GetTable(GetTableRequest) returns (GetTableResponse);
+  rpc ListTables(ListTablesRequest) returns (ListTablesResponse);
+  rpc DeleteTable(DeleteTableRequest) returns (DeleteTableResponse);
+  rpc CloneTable(CloneTableRequest) returns (CloneTableResponse);
+  
+  // Advanced operations
+  rpc GetProbabilities(GetProbabilitiesRequest) returns (GetProbabilitiesResponse);
+  rpc TestDistribution(TestDistributionRequest) returns (TestDistributionResponse);
+  rpc MergeTables(MergeTablesRequest) returns (MergeTablesResponse);
+}
+
+// Table creation
+message CreateTableRequest {
+  string id = 1;                       // Optional, generated if empty
+  string name = 2;
+  string description = 3;
+  TableConfig config = 4;
+}
+
+message CreateTableResponse {
+  SelectionTable table = 1;
+  Result status = 2;
+}
+
+message TableConfig {
+  SelectionMode mode = 1;
+  bool allow_duplicates = 2;           // In multi-selection
+  int32 default_weight = 3;            // Weight for items without explicit weight
+  map<string, string> properties = 4;
+}
+
+enum SelectionMode {
+  SELECTION_MODE_UNSPECIFIED = 0;
+  SELECTION_MODE_SINGLE = 1;           // Select one item
+  SELECTION_MODE_MULTIPLE = 2;         // Select multiple items
+  SELECTION_MODE_UNIQUE = 3;           // No duplicate selections
+  SELECTION_MODE_VARIABLE = 4;         // Variable count based on context
+}
+
+message SelectionTable {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  TableConfig config = 4;
+  repeated SelectableItem items = 5;
+  int32 total_weight = 6;
+  int64 created_timestamp = 7;
+  int64 modified_timestamp = 8;
+}
+
+message SelectableItem {
+  string id = 1;
+  string content = 2;                  // The actual item (JSON or string)
+  string content_type = 3;             // "string", "json", "entity_id", etc.
+  int32 weight = 4;
+  map<string, string> properties = 5;  // Additional metadata
+  repeated ContextCondition conditions = 6;  // When this item is available
+}
+
+message ContextCondition {
+  string key = 1;                      // Context key to check
+  string operator = 2;                 // "equals", "greater_than", "contains", etc.
+  string value = 3;                    // Expected value
+}
+
+// Item management
+message AddItemRequest {
+  string table_id = 1;
+  SelectableItem item = 2;
+}
+
+message AddItemResponse {
+  SelectableItem added_item = 1;
+  int32 new_total_weight = 2;
+  Result status = 3;
+}
+
+message RemoveItemRequest {
+  string table_id = 1;
+  string item_id = 2;
+}
+
+message RemoveItemResponse {
+  SelectableItem removed_item = 1;
+  int32 new_total_weight = 2;
+  Result status = 3;
+}
+
+message UpdateWeightRequest {
+  string table_id = 1;
+  string item_id = 2;
+  int32 new_weight = 3;
+}
+
+message UpdateWeightResponse {
+  SelectableItem updated_item = 1;
+  int32 new_total_weight = 2;
+  Result status = 3;
+}
+
+// Selection operations
+message SelectRequest {
+  string table_id = 1;
+  SelectionContext context = 2;
+}
+
+message SelectResponse {
+  SelectableItem selected_item = 1;
+  SelectionResult result = 2;
+  Result status = 3;
+}
+
+message SelectMultipleRequest {
+  string table_id = 1;
+  int32 count = 2;
+  SelectionContext context = 3;
+}
+
+message SelectMultipleResponse {
+  repeated SelectableItem selected_items = 1;
+  SelectionResult result = 2;
+  Result status = 3;
+}
+
+message SelectWithContextRequest {
+  string table_id = 1;
+  SelectionContext context = 2;
+  SelectionOptions options = 3;
+}
+
+message SelectWithContextResponse {
+  repeated SelectableItem selected_items = 1;
+  SelectionResult result = 2;
+  Result status = 3;
+}
+
+message SelectionContext {
+  map<string, string> data = 1;        // Context data for conditional selection
+  string entity_id = 2;                // Entity making the selection
+  int32 player_level = 3;              // For level-based loot tables
+  string location = 4;                 // For location-based selection
+  repeated string tags = 5;            // Additional context tags
+}
+
+message SelectionOptions {
+  int32 min_count = 1;                 // Minimum items to select
+  int32 max_count = 2;                 // Maximum items to select
+  bool allow_empty = 3;                // Can return no items
+  repeated string required_tags = 4;   // Items must have these tags
+  repeated string excluded_tags = 5;   // Items cannot have these tags
+  float weight_modifier = 6;           // Multiply all weights by this
+}
+
+message SelectionResult {
+  int32 total_weight = 1;              // Total weight of table at selection time
+  int32 roll_value = 2;                // Random value that was rolled
+  int32 items_evaluated = 3;           // How many items were considered
+  int32 items_filtered = 4;            // How many items were filtered out
+  int64 selection_timestamp = 5;
+  string selection_id = 6;             // Unique ID for this selection
+}
+
+// Table management
+message GetTableRequest {
+  string table_id = 1;
+  bool include_items = 2;              // Include full item list
+}
+
+message GetTableResponse {
+  SelectionTable table = 1;
+  Result status = 2;
+}
+
+message ListTablesRequest {
+  int32 limit = 1;
+  string cursor = 2;                   // Pagination
+  string name_filter = 3;              // Filter by name pattern
+  repeated string tags = 4;            // Filter by tags
+}
+
+message ListTablesResponse {
+  repeated SelectionTable tables = 1;
+  string next_cursor = 2;
+  int32 total_count = 3;
+  Result status = 4;
+}
+
+message DeleteTableRequest {
+  string table_id = 1;
+}
+
+message DeleteTableResponse {
+  Result status = 1;
+}
+
+message CloneTableRequest {
+  string source_table_id = 1;
+  string new_name = 2;
+  bool copy_items = 3;                 // Copy items or just structure
+}
+
+message CloneTableResponse {
+  SelectionTable cloned_table = 1;
+  Result status = 2;
+}
+
+// Advanced analysis
+message GetProbabilitiesRequest {
+  string table_id = 1;
+  SelectionContext context = 2;        // Context affects probabilities
+}
+
+message GetProbabilitiesResponse {
+  repeated ItemProbability probabilities = 1;
+  int32 total_weight = 2;
+  Result status = 3;
+}
+
+message ItemProbability {
+  SelectableItem item = 1;
+  float probability = 2;               // 0.0 to 1.0
+  float percentage = 3;                // 0.0 to 100.0
+  int32 effective_weight = 4;          // Weight after context filtering
+}
+
+message TestDistributionRequest {
+  string table_id = 1;
+  int32 sample_size = 2;               // Number of selections to test
+  SelectionContext context = 3;
+}
+
+message TestDistributionResponse {
+  repeated ItemDistribution distributions = 1;
+  int32 total_selections = 2;
+  float chi_squared = 3;               // Statistical test result
+  bool is_fair = 4;                    // Distribution matches expected
+  Result status = 5;
+}
+
+message ItemDistribution {
+  SelectableItem item = 1;
+  int32 selected_count = 2;
+  float expected_count = 3;
+  float actual_percentage = 4;
+  float expected_percentage = 5;
+  float deviation = 6;                 // Difference from expected
+}
+
+message MergeTablesRequest {
+  repeated string source_table_ids = 1;
+  string target_table_name = 2;
+  MergeStrategy strategy = 3;
+}
+
+message MergeTablesResponse {
+  SelectionTable merged_table = 1;
+  int32 total_items = 2;
+  int32 duplicate_items_merged = 3;
+  Result status = 4;
+}
+
+enum MergeStrategy {
+  MERGE_STRATEGY_UNSPECIFIED = 0;
+  MERGE_STRATEGY_COMBINE = 1;          // Keep all items, add weights for duplicates
+  MERGE_STRATEGY_AVERAGE = 2;          // Average weights for duplicate items
+  MERGE_STRATEGY_HIGHEST = 3;          // Keep highest weight for duplicates
+  MERGE_STRATEGY_REPLACE = 4;          // Last table wins for duplicates
+}

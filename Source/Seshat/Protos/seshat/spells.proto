@@ -1,0 +1,538 @@
+syntax = "proto3";
+
+package seshat;
+
+import "seshat/common.proto";
+import "seshat/resources.proto";
+import "seshat/conditions.proto";
+
+option go_package = "github.com/seshat/protos/seshat";
+
+// Spell system service - exposes all spells toolkit functionality
+service SpellService {
+  // Spell management
+  rpc GetSpell(GetSpellRequest) returns (GetSpellResponse);
+  rpc ListSpells(ListSpellsRequest) returns (ListSpellsResponse);
+  rpc CreateCustomSpell(CreateCustomSpellRequest) returns (CreateCustomSpellResponse);
+  
+  // Spell casting
+  rpc CastSpell(CastSpellRequest) returns (CastSpellResponse);
+  rpc CanCastSpell(CanCastSpellRequest) returns (CanCastSpellResponse);
+  rpc GetCastingOptions(GetCastingOptionsRequest) returns (GetCastingOptionsResponse);
+  
+  // Spell slots and preparation
+  rpc GetSpellSlots(GetSpellSlotsRequest) returns (GetSpellSlotsResponse);
+  rpc UpdateSpellSlots(UpdateSpellSlotsRequest) returns (UpdateSpellSlotsResponse);
+  rpc GetPreparedSpells(GetPreparedSpellsRequest) returns (GetPreparedSpellsResponse);
+  rpc PrepareSpell(PrepareSpellRequest) returns (PrepareSpellResponse);
+  rpc UnprepareSpell(UnprepareSpellRequest) returns (UnprepareSpellResponse);
+  
+  // Concentration management
+  rpc StartConcentration(StartConcentrationRequest) returns (StartConcentrationResponse);
+  rpc EndConcentration(EndConcentrationRequest) returns (EndConcentrationResponse);
+  rpc GetConcentrationStatus(GetConcentrationStatusRequest) returns (GetConcentrationStatusResponse);
+  rpc MakeConcentrationCheck(MakeConcentrationCheckRequest) returns (MakeConcentrationCheckResponse);
+  
+  // Spell effects and targeting
+  rpc GetSpellTargets(GetSpellTargetsRequest) returns (GetSpellTargetsResponse);
+  rpc ApplySpellEffects(ApplySpellEffectsRequest) returns (ApplySpellEffectsResponse);
+  rpc GetSpellAreas(GetSpellAreasRequest) returns (GetSpellAreasResponse);
+  
+  // Spell history and tracking
+  rpc GetSpellHistory(GetSpellHistoryRequest) returns (GetSpellHistoryResponse);
+  rpc GetActiveSpells(GetActiveSpellsRequest) returns (GetActiveSpellsResponse);
+}
+
+// Core spell structure
+message Spell {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  int32 level = 4;                       // 0 = cantrip, 1-9 = spell levels
+  
+  SpellSchool school = 5;
+  repeated string classes = 6;           // Which classes can learn this spell
+  repeated string components = 7;        // "V", "S", "M", "F" (verbal, somatic, material, focus)
+  string material_component = 8;         // Description of material component
+  
+  CastingRequirements casting = 9;
+  SpellRange range = 10;
+  SpellDuration duration = 11;
+  SpellArea area = 12;
+  
+  repeated SpellEffect effects = 13;
+  repeated string tags = 14;             // "damage", "healing", "utility", etc.
+  
+  bool requires_concentration = 15;
+  bool is_ritual = 16;
+  bool can_upcast = 17;                  // Can be cast at higher levels
+  
+  map<string, string> properties = 18;
+  string source = 19;                    // Book/source where spell is defined
+}
+
+enum SpellSchool {
+  SPELL_SCHOOL_UNSPECIFIED = 0;
+  SPELL_SCHOOL_ABJURATION = 1;
+  SPELL_SCHOOL_CONJURATION = 2;
+  SPELL_SCHOOL_DIVINATION = 3;
+  SPELL_SCHOOL_ENCHANTMENT = 4;
+  SPELL_SCHOOL_EVOCATION = 5;
+  SPELL_SCHOOL_ILLUSION = 6;
+  SPELL_SCHOOL_NECROMANCY = 7;
+  SPELL_SCHOOL_TRANSMUTATION = 8;
+}
+
+message CastingRequirements {
+  string casting_time = 1;               // "1 action", "1 bonus action", "1 minute"
+  bool requires_line_of_sight = 2;
+  bool requires_verbal = 3;
+  bool requires_somatic = 4;
+  bool requires_material = 5;
+  bool requires_focus = 6;
+  bool material_consumed = 7;            // Material component is consumed
+  int32 material_cost_gp = 8;            // Cost of material component
+}
+
+message SpellRange {
+  RangeType type = 1;
+  int32 distance = 2;                    // In feet/meters
+  bool requires_touch = 3;
+}
+
+enum RangeType {
+  RANGE_TYPE_UNSPECIFIED = 0;
+  RANGE_TYPE_SELF = 1;
+  RANGE_TYPE_TOUCH = 2;
+  RANGE_TYPE_RANGED = 3;                 // Specific distance
+  RANGE_TYPE_SIGHT = 4;                  // As far as you can see
+  RANGE_TYPE_UNLIMITED = 5;              // No range limit
+}
+
+message SpellDuration {
+  DurationType type = 1;                 // Reusing from conditions.proto
+  int32 value = 2;
+  bool requires_concentration = 3;
+  bool is_instantaneous = 4;
+  string description = 5;                // "Until dispelled", etc.
+}
+
+message SpellArea {
+  AreaType type = 1;
+  int32 size = 2;                        // Radius, width, etc.
+  string shape = 3;                      // "sphere", "cube", "cone", "line"
+  bool affects_objects = 4;
+  bool affects_terrain = 5;
+}
+
+enum AreaType {
+  AREA_TYPE_UNSPECIFIED = 0;
+  AREA_TYPE_SINGLE_TARGET = 1;
+  AREA_TYPE_SPHERE = 2;
+  AREA_TYPE_CUBE = 3;
+  AREA_TYPE_CONE = 4;
+  AREA_TYPE_LINE = 5;
+  AREA_TYPE_CYLINDER = 6;
+  AREA_TYPE_HEMISPHERE = 7;
+}
+
+message SpellEffect {
+  string type = 1;                       // "damage", "healing", "condition", etc.
+  string description = 2;
+  EffectTiming timing = 3;
+  repeated string targets = 4;           // "caster", "target", "all_enemies", etc.
+  
+  // Effect parameters (depends on type)
+  DamageEffect damage = 5;
+  HealingEffect healing = 6;
+  SpellConditionEffect condition = 7;
+  MovementEffect movement = 8;
+  map<string, string> custom_parameters = 9;
+  
+  // Scaling for higher level casts
+  SpellScaling scaling = 10;
+}
+
+enum EffectTiming {
+  EFFECT_TIMING_UNSPECIFIED = 0;
+  EFFECT_TIMING_IMMEDIATE = 1;           // Happens when cast
+  EFFECT_TIMING_START_OF_TURN = 2;
+  EFFECT_TIMING_END_OF_TURN = 3;
+  EFFECT_TIMING_ON_TRIGGER = 4;          // When specific event occurs
+  EFFECT_TIMING_DURATION = 5;            // Ongoing for spell duration
+}
+
+message DamageEffect {
+  string damage_type = 1;                // "fire", "cold", "necrotic", etc.
+  string dice_formula = 2;               // "2d6", "1d4+1", etc.
+  bool allows_save = 3;
+  string save_ability = 4;               // "dexterity", "constitution", etc.
+  int32 save_dc = 5;
+  bool half_damage_on_save = 6;
+}
+
+message HealingEffect {
+  string dice_formula = 1;
+  bool affects_undead = 2;               // Some healing harms undead
+  bool temporary_hit_points = 3;
+  int32 maximum_targets = 4;
+}
+
+message SpellConditionEffect {
+  string condition_type = 1;             // Links to conditions.proto
+  ConditionDuration duration = 2;
+  bool allows_save = 3;
+  string save_ability = 4;
+  int32 save_dc = 5;
+  bool save_ends_condition = 6;
+}
+
+message MovementEffect {
+  string type = 1;                       // "teleport", "push", "pull", "speed_change"
+  int32 distance = 2;
+  string direction = 3;                  // "away_from_caster", "toward_caster", "chosen"
+  bool allows_save = 4;
+  string save_ability = 5;
+  int32 save_dc = 6;
+}
+
+message SpellScaling {
+  string scaling_type = 1;               // "damage", "targets", "duration", "area"
+  string per_level_bonus = 2;            // "1d6", "+1 target", "+10 minutes"
+  int32 max_level = 3;                   // Maximum effective level
+}
+
+// Spell queries
+message GetSpellRequest {
+  string spell_id = 1;
+  string spell_name = 2;                 // Alternative lookup
+}
+
+message GetSpellResponse {
+  Spell spell = 1;
+  Result status = 2;
+}
+
+message ListSpellsRequest {
+  repeated int32 levels = 1;             // Filter by spell levels
+  repeated SpellSchool schools = 2;      // Filter by schools
+  repeated string classes = 3;           // Filter by class availability
+  repeated string tags = 4;              // Filter by tags
+  string search_text = 5;                // Search in name/description
+  int32 limit = 6;
+  string cursor = 7;                     // Pagination
+}
+
+message ListSpellsResponse {
+  repeated Spell spells = 1;
+  string next_cursor = 2;
+  int32 total_count = 3;
+  Result status = 4;
+}
+
+message CreateCustomSpellRequest {
+  Spell spell = 1;
+  string creator_entity_id = 2;
+}
+
+message CreateCustomSpellResponse {
+  Spell created_spell = 1;
+  Result status = 2;
+}
+
+// Spell casting
+message CastSpellRequest {
+  string caster_entity_id = 1;
+  string spell_id = 2;
+  int32 cast_level = 3;                  // Level to cast at (for upcasting)
+  repeated string target_entity_ids = 4;
+  Position target_position = 5;          // For area spells
+  map<string, string> casting_options = 6;  // Additional casting parameters
+  bool use_spell_slot = 7;               // False for cantrips, rituals
+}
+
+message CastSpellResponse {
+  SpellCastResult result = 1;
+  repeated SpellEffect applied_effects = 2;
+  ResourcePool updated_spell_slots = 3;  // If spell slot was used
+  Condition concentration_condition = 4;  // If spell requires concentration
+  Result status = 5;
+}
+
+message SpellCastResult {
+  bool success = 1;
+  string failure_reason = 2;             // Why casting failed
+  Spell spell_cast = 3;
+  int32 actual_cast_level = 4;
+  repeated string affected_entity_ids = 5;
+  repeated Position affected_positions = 6;
+  int64 cast_timestamp = 7;
+  string cast_id = 8;                    // Unique identifier for this casting
+}
+
+message CanCastSpellRequest {
+  string caster_entity_id = 1;
+  string spell_id = 2;
+  int32 desired_level = 3;
+}
+
+message CanCastSpellResponse {
+  bool can_cast = 1;
+  repeated string requirements_not_met = 2;  // What's preventing casting
+  repeated int32 available_levels = 3;   // Levels this spell can be cast at
+  Result status = 4;
+}
+
+message GetCastingOptionsRequest {
+  string caster_entity_id = 1;
+  string spell_id = 2;
+}
+
+message GetCastingOptionsResponse {
+  repeated CastingOption options = 1;
+  Result status = 2;
+}
+
+message CastingOption {
+  int32 level = 1;
+  int32 available_slots = 2;
+  bool is_ritual = 3;
+  string description = 4;                // "2nd level slot", "ritual casting", etc.
+  map<string, string> effects = 5;      // How casting at this level differs
+}
+
+// Spell slots
+message GetSpellSlotsRequest {
+  string entity_id = 1;
+}
+
+message GetSpellSlotsResponse {
+  SpellSlotTable slot_table = 1;
+  Result status = 2;
+}
+
+message SpellSlotTable {
+  string entity_id = 1;
+  repeated SpellSlotLevel levels = 2;
+  int32 total_slots = 3;
+  int32 used_slots = 4;
+  int64 last_long_rest_timestamp = 5;    // When slots were last restored
+}
+
+message SpellSlotLevel {
+  int32 level = 1;                       // 1-9
+  int32 total_slots = 2;
+  int32 used_slots = 3;
+  int32 available_slots = 4;
+}
+
+message UpdateSpellSlotsRequest {
+  string entity_id = 1;
+  repeated SpellSlotUpdate updates = 2;
+  string reason = 3;                     // "level_up", "long_rest", "spell_cast"
+}
+
+message UpdateSpellSlotsResponse {
+  SpellSlotTable updated_table = 1;
+  Result status = 2;
+}
+
+message SpellSlotUpdate {
+  int32 level = 1;
+  int32 new_total = 2;
+  int32 used_change = 3;                 // +1 to use slot, -1 to restore
+}
+
+// Spell preparation
+message GetPreparedSpellsRequest {
+  string entity_id = 1;
+}
+
+message GetPreparedSpellsResponse {
+  repeated PreparedSpell prepared_spells = 1;
+  int32 max_prepared = 2;
+  int32 current_prepared = 3;
+  Result status = 4;
+}
+
+message PreparedSpell {
+  Spell spell = 1;
+  int64 prepared_timestamp = 2;
+  bool always_prepared = 3;              // Domain spells, etc.
+  string preparation_source = 4;         // "domain", "class", "racial", etc.
+}
+
+message PrepareSpellRequest {
+  string entity_id = 1;
+  string spell_id = 2;
+}
+
+message PrepareSpellResponse {
+  PreparedSpell prepared_spell = 1;
+  int32 remaining_preparation_slots = 2;
+  Result status = 3;
+}
+
+message UnprepareSpellRequest {
+  string entity_id = 1;
+  string spell_id = 2;
+}
+
+message UnprepareSpellResponse {
+  bool was_prepared = 1;
+  int32 available_preparation_slots = 2;
+  Result status = 3;
+}
+
+// Concentration management
+message StartConcentrationRequest {
+  string caster_entity_id = 1;
+  string spell_cast_id = 2;              // Links to specific spell casting
+  Spell spell = 3;
+}
+
+message StartConcentrationResponse {
+  Condition concentration_condition = 1;  // The concentration condition applied
+  Condition ended_concentration = 2;      // Previous concentration that ended
+  Result status = 3;
+}
+
+message EndConcentrationRequest {
+  string entity_id = 1;
+  string reason = 2;                     // "voluntary", "failed_save", "incapacitated"
+}
+
+message EndConcentrationResponse {
+  Condition ended_condition = 1;
+  repeated SpellEffect ended_effects = 2;
+  Result status = 3;
+}
+
+message GetConcentrationStatusRequest {
+  string entity_id = 1;
+}
+
+message GetConcentrationStatusResponse {
+  bool is_concentrating = 1;
+  Condition concentration_condition = 2;
+  Spell concentration_spell = 3;
+  int64 concentration_started = 4;
+  Result status = 5;
+}
+
+message MakeConcentrationCheckRequest {
+  string entity_id = 1;
+  int32 damage_taken = 2;                // Trigger for concentration check
+  int32 dc_override = 3;                 // Override default DC calculation
+  map<string, int32> modifiers = 4;     // Bonuses/penalties to the check
+}
+
+message MakeConcentrationCheckResponse {
+  bool check_passed = 1;
+  int32 roll_result = 2;
+  int32 dc = 3;
+  int32 total_modifier = 4;
+  bool concentration_maintained = 5;
+  Result status = 6;
+}
+
+// Spell targeting and effects
+message GetSpellTargetsRequest {
+  string spell_id = 1;
+  string caster_entity_id = 2;
+  Position casting_position = 3;
+  Position target_position = 4;           // For area spells
+}
+
+message GetSpellTargetsResponse {
+  repeated string valid_target_entity_ids = 1;
+  repeated Position affected_positions = 2;
+  SpellArea effective_area = 3;
+  repeated string targeting_warnings = 4;  // "Allies in area", etc.
+  Result status = 5;
+}
+
+message ApplySpellEffectsRequest {
+  string spell_cast_id = 1;
+  repeated string target_entity_ids = 2;
+  repeated SpellEffect effects_to_apply = 3;
+  int32 cast_level = 4;
+}
+
+message ApplySpellEffectsResponse {
+  repeated SpellEffectResult effect_results = 1;
+  Result status = 2;
+}
+
+message SpellEffectResult {
+  string target_entity_id = 1;
+  SpellEffect effect = 2;
+  bool effect_succeeded = 3;
+  int32 damage_dealt = 4;
+  int32 healing_done = 5;
+  Condition condition_applied = 6;
+  string save_result = 7;                // "passed", "failed", "no_save"
+  map<string, string> details = 8;
+}
+
+message GetSpellAreasRequest {
+  string spell_id = 1;
+  Position center_position = 2;
+  string room_id = 3;                    // For line of sight calculations
+}
+
+message GetSpellAreasResponse {
+  repeated Position affected_positions = 1;
+  SpellArea area = 2;
+  repeated Position blocked_positions = 3;  // Positions blocked by walls/obstacles
+  Result status = 4;
+}
+
+// Spell tracking and history
+message GetSpellHistoryRequest {
+  string entity_id = 1;
+  int32 limit = 2;
+  int64 since_timestamp = 3;
+  repeated string spell_ids = 4;         // Filter by specific spells
+}
+
+message GetSpellHistoryResponse {
+  repeated SpellCastRecord history = 1;
+  int32 total_count = 2;
+  Result status = 3;
+}
+
+message SpellCastRecord {
+  string cast_id = 1;
+  Spell spell = 2;
+  string caster_entity_id = 3;
+  int32 cast_level = 4;
+  repeated string target_entity_ids = 5;
+  bool was_successful = 6;
+  int64 cast_timestamp = 7;
+  int64 duration_end_timestamp = 8;      // When spell effects ended
+  string outcome = 9;                    // Brief description of results
+}
+
+message GetActiveSpellsRequest {
+  string entity_id = 1;                  // Spells affecting this entity
+  bool caster_only = 2;                  // Only spells this entity cast
+}
+
+message GetActiveSpellsResponse {
+  repeated ActiveSpell active_spells = 1;
+  int32 concentration_spells = 2;
+  Result status = 3;
+}
+
+message ActiveSpell {
+  string cast_id = 1;
+  Spell spell = 2;
+  string caster_entity_id = 3;
+  int32 cast_level = 4;
+  int64 cast_timestamp = 5;
+  int64 expires_timestamp = 6;
+  bool requires_concentration = 7;
+  repeated SpellEffect ongoing_effects = 8;
+  SpellArea area = 9;                    // If spell affects an area
+}

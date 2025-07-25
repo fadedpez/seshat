@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <None Include="..\..\Seshat.uproject" />
+    <Filter Include="Source">
+      <UniqueIdentifier>{F31BBDD1-B3E8-3BCC-9652-680E16935819}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\Seshat.Target.cs">
+      <Filter>Source</Filter>
+    </None>
+    <None Include="..\..\Source\SeshatEditor.Target.cs">
+      <Filter>Source</Filter>
+    </None>
+    <Filter Include="Config">
+      <UniqueIdentifier>{FA535FFB-25E1-3D20-B416-52F9BE21E06E}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Config\DefaultEditor.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultEditorPerProjectUserSettings.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultEngine.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultGame.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultInput.ini">
+      <Filter>Config</Filter>
+    </None>
+    <Filter Include="Source\Seshat">
+      <UniqueIdentifier>{9DA47034-4CF5-375A-B755-18B95C7164D7}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\Seshat\Seshat.Build.cs">
+      <Filter>Source\Seshat</Filter>
+    </None>
+    <ClCompile Include="..\..\Source\Seshat\Seshat.cpp">
+      <Filter>Source\Seshat</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Seshat.h">
+      <Filter>Source\Seshat</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\SeshatCharacter.cpp">
+      <Filter>Source\Seshat</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\SeshatCharacter.h">
+      <Filter>Source\Seshat</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\SeshatGameMode.cpp">
+      <Filter>Source\Seshat</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\SeshatGameMode.h">
+      <Filter>Source\Seshat</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\SeshatPlayerController.cpp">
+      <Filter>Source\Seshat</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\SeshatPlayerController.h">
+      <Filter>Source\Seshat</Filter>
+    </ClInclude>
+    <Filter Include="Source\Seshat\Variant_Strategy">
+      <UniqueIdentifier>{EB29B887-2B7D-3FAE-AAB0-7DB0B4C10F54}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\Seshat\Variant_Strategy\StrategyGameMode.cpp">
+      <Filter>Source\Seshat\Variant_Strategy</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_Strategy\StrategyGameMode.h">
+      <Filter>Source\Seshat\Variant_Strategy</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_Strategy\StrategyHUD.cpp">
+      <Filter>Source\Seshat\Variant_Strategy</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_Strategy\StrategyHUD.h">
+      <Filter>Source\Seshat\Variant_Strategy</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_Strategy\StrategyPawn.cpp">
+      <Filter>Source\Seshat\Variant_Strategy</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_Strategy\StrategyPawn.h">
+      <Filter>Source\Seshat\Variant_Strategy</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_Strategy\StrategyPlayerController.cpp">
+      <Filter>Source\Seshat\Variant_Strategy</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_Strategy\StrategyPlayerController.h">
+      <Filter>Source\Seshat\Variant_Strategy</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_Strategy\StrategyUI.cpp">
+      <Filter>Source\Seshat\Variant_Strategy</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_Strategy\StrategyUI.h">
+      <Filter>Source\Seshat\Variant_Strategy</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_Strategy\StrategyUnit.cpp">
+      <Filter>Source\Seshat\Variant_Strategy</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_Strategy\StrategyUnit.h">
+      <Filter>Source\Seshat\Variant_Strategy</Filter>
+    </ClInclude>
+    <Filter Include="Source\Seshat\Variant_TwinStick">
+      <UniqueIdentifier>{043EBF55-35A5-3342-89F8-CB5DF7069DCA}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickAoEAttack.cpp">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickAoEAttack.h">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickCharacter.cpp">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickCharacter.h">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickGameMode.cpp">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickGameMode.h">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickNPCDestruction.cpp">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickNPCDestruction.h">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickPickup.cpp">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickPickup.h">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickPlayerController.cpp">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickPlayerController.h">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickProjectile.cpp">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickProjectile.h">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickSpawner.cpp">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickSpawner.h">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickUI.cpp">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_TwinStick\TwinStickUI.h">
+      <Filter>Source\Seshat\Variant_TwinStick</Filter>
+    </ClInclude>
+    <Filter Include="Source\Seshat\Variant_TwinStick\AI">
+      <UniqueIdentifier>{4018A360-ECDD-3076-AA20-3DFE6EA4F641}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\Seshat\Variant_TwinStick\AI\TwinStickAIController.cpp">
+      <Filter>Source\Seshat\Variant_TwinStick\AI</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_TwinStick\AI\TwinStickAIController.h">
+      <Filter>Source\Seshat\Variant_TwinStick\AI</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_TwinStick\AI\TwinStickNPC.cpp">
+      <Filter>Source\Seshat\Variant_TwinStick\AI</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_TwinStick\AI\TwinStickNPC.h">
+      <Filter>Source\Seshat\Variant_TwinStick\AI</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Seshat\Variant_TwinStick\AI\TwinStickStateTreeUtility.cpp">
+      <Filter>Source\Seshat\Variant_TwinStick\AI</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Seshat\Variant_TwinStick\AI\TwinStickStateTreeUtility.h">
+      <Filter>Source\Seshat\Variant_TwinStick\AI</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

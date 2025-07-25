@@ -1,0 +1,333 @@
+syntax = "proto3";
+
+package seshat;
+
+import "seshat/common.proto";
+
+option go_package = "github.com/seshat/protos/seshat";
+
+// Conditions service - exposes all conditions toolkit functionality
+service ConditionsService {
+  // Condition management
+  rpc ApplyCondition(ApplyConditionRequest) returns (ApplyConditionResponse);
+  rpc RemoveCondition(RemoveConditionRequest) returns (RemoveConditionResponse);
+  rpc GetConditions(GetConditionsRequest) returns (GetConditionsResponse);
+  rpc UpdateCondition(UpdateConditionRequest) returns (UpdateConditionResponse);
+  
+  // Condition queries
+  rpc HasCondition(HasConditionRequest) returns (HasConditionResponse);
+  rpc GetConditionsByType(GetConditionsByTypeRequest) returns (GetConditionsByTypeResponse);
+  rpc GetActiveConditions(GetActiveConditionsRequest) returns (GetActiveConditionsResponse);
+  
+  // Condition relationships
+  rpc CheckImmunity(CheckImmunityRequest) returns (CheckImmunityResponse);
+  rpc GetConflictingConditions(GetConflictingConditionsRequest) returns (GetConflictingConditionsResponse);
+  rpc ResolveConflicts(ResolveConflictsRequest) returns (ResolveConflictsResponse);
+  
+  // Condition templates
+  rpc GetConditionTemplates(GetConditionTemplatesRequest) returns (GetConditionTemplatesResponse);
+  rpc CreateConditionTemplate(CreateConditionTemplateRequest) returns (CreateConditionTemplateResponse);
+  
+  // Advanced features
+  rpc ProcessConditionTick(ProcessConditionTickRequest) returns (ProcessConditionTickResponse);
+  rpc GetConditionHistory(GetConditionHistoryRequest) returns (GetConditionHistoryResponse);
+}
+
+// Core condition structure
+message Condition {
+  string id = 1;
+  string type = 2;                     // "poisoned", "stunned", "blessed", etc.
+  string name = 3;
+  string description = 4;
+  string target_entity_id = 5;
+  string source_entity_id = 6;         // What applied this condition
+  
+  ConditionSeverity severity = 7;
+  ConditionDuration duration = 8;
+  repeated ConditionEffect effects = 9;
+  
+  map<string, string> properties = 10;
+  int64 applied_timestamp = 11;
+  int64 expires_timestamp = 12;
+  bool is_active = 13;
+  
+  // Stacking information
+  int32 stack_count = 14;
+  int32 max_stacks = 15;
+  StackingBehavior stacking_behavior = 16;
+}
+
+enum ConditionSeverity {
+  CONDITION_SEVERITY_UNSPECIFIED = 0;
+  CONDITION_SEVERITY_MINOR = 1;        // Light effects
+  CONDITION_SEVERITY_MODERATE = 2;     // Standard effects
+  CONDITION_SEVERITY_MAJOR = 3;        // Severe effects
+  CONDITION_SEVERITY_CRITICAL = 4;     // Life-threatening effects
+}
+
+message ConditionDuration {
+  DurationType type = 1;
+  int32 value = 2;                     // Rounds, minutes, etc.
+  string trigger = 3;                  // "end_of_turn", "short_rest", etc.
+  bool permanent = 4;
+}
+
+enum DurationType {
+  DURATION_TYPE_UNSPECIFIED = 0;
+  DURATION_TYPE_ROUNDS = 1;            // Combat rounds
+  DURATION_TYPE_MINUTES = 2;
+  DURATION_TYPE_HOURS = 3;
+  DURATION_TYPE_DAYS = 4;
+  DURATION_TYPE_UNTIL_TRIGGER = 5;     // Until specific event
+  DURATION_TYPE_CONCENTRATION = 6;     // Requires concentration
+  DURATION_TYPE_PERMANENT = 7;
+}
+
+enum StackingBehavior {
+  STACKING_BEHAVIOR_UNSPECIFIED = 0;
+  STACKING_BEHAVIOR_NONE = 1;          // Cannot stack
+  STACKING_BEHAVIOR_DURATION = 2;      // Extends duration
+  STACKING_BEHAVIOR_INTENSITY = 3;     // Increases effect strength
+  STACKING_BEHAVIOR_COUNT = 4;         // Adds additional stacks
+  STACKING_BEHAVIOR_REPLACE = 5;       // New application replaces old
+}
+
+message ConditionEffect {
+  string type = 1;                     // "stat_modifier", "movement_restriction", etc.
+  string target = 2;                   // What this affects
+  EffectOperation operation = 3;
+  int32 value = 4;
+  string description = 5;
+  map<string, string> parameters = 6;
+}
+
+enum EffectOperation {
+  EFFECT_OPERATION_UNSPECIFIED = 0;
+  EFFECT_OPERATION_ADD = 1;            // Add value
+  EFFECT_OPERATION_SUBTRACT = 2;       // Subtract value
+  EFFECT_OPERATION_MULTIPLY = 3;       // Multiply by value
+  EFFECT_OPERATION_DIVIDE = 4;         // Divide by value
+  EFFECT_OPERATION_SET = 5;            // Set to specific value
+  EFFECT_OPERATION_DISABLE = 6;        // Disable feature/ability
+  EFFECT_OPERATION_ENABLE = 7;         // Enable feature/ability
+}
+
+// Condition application
+message ApplyConditionRequest {
+  string target_entity_id = 1;
+  string condition_type = 2;
+  ConditionParameters parameters = 3;
+  string source_entity_id = 4;
+  bool force_apply = 5;                // Override immunities/conflicts
+}
+
+message ApplyConditionResponse {
+  Condition applied_condition = 1;
+  repeated string warnings = 2;        // Immunity warnings, etc.
+  repeated Condition conflicting_conditions = 3;
+  Result status = 4;
+}
+
+message ConditionParameters {
+  ConditionSeverity severity = 1;
+  ConditionDuration duration = 2;
+  repeated ConditionEffect custom_effects = 3;
+  map<string, string> properties = 4;
+  int32 stack_count = 5;               // How many stacks to apply
+}
+
+message RemoveConditionRequest {
+  string condition_id = 1;
+  string target_entity_id = 2;        // Alternative: remove by entity + type
+  string condition_type = 3;
+  RemovalReason reason = 4;
+}
+
+message RemoveConditionResponse {
+  Condition removed_condition = 1;
+  Result status = 2;
+}
+
+message UpdateConditionRequest {
+  string condition_id = 1;
+  ConditionParameters updates = 2;
+}
+
+message UpdateConditionResponse {
+  Condition updated_condition = 1;
+  Result status = 2;
+}
+
+enum RemovalReason {
+  REMOVAL_REASON_UNSPECIFIED = 0;
+  REMOVAL_REASON_EXPIRED = 1;          // Duration ended
+  REMOVAL_REASON_DISPELLED = 2;        // Magically removed
+  REMOVAL_REASON_CURED = 3;            // Healed/treated
+  REMOVAL_REASON_OVERRIDDEN = 4;       // Replaced by stronger effect
+  REMOVAL_REASON_DEATH = 5;            // Entity died
+  REMOVAL_REASON_MANUAL = 6;           // Manually removed
+}
+
+// Condition queries
+message GetConditionsRequest {
+  string entity_id = 1;
+  bool active_only = 2;
+  repeated string condition_types = 3;  // Filter by types
+}
+
+message GetConditionsResponse {
+  repeated Condition conditions = 1;
+  int32 total_count = 2;
+  Result status = 3;
+}
+
+message HasConditionRequest {
+  string entity_id = 1;
+  string condition_type = 2;
+  bool active_only = 3;
+}
+
+message HasConditionResponse {
+  bool has_condition = 1;
+  Condition condition = 2;             // The condition if it exists
+  Result status = 3;
+}
+
+message GetConditionsByTypeRequest {
+  string condition_type = 1;
+  bool active_only = 2;
+  int32 limit = 3;
+}
+
+message GetConditionsByTypeResponse {
+  repeated Condition conditions = 1;
+  int32 total_count = 2;
+  Result status = 3;
+}
+
+message GetActiveConditionsRequest {
+  repeated string entity_ids = 1;      // Get for multiple entities
+  int64 as_of_timestamp = 2;           // Check active as of specific time
+}
+
+message GetActiveConditionsResponse {
+  map<string, EntityConditions> entity_conditions = 1;  // entity_id -> conditions
+  Result status = 2;
+}
+
+message EntityConditions {
+  string entity_id = 1;
+  repeated Condition conditions = 2;
+  int32 total_conditions = 3;
+}
+
+// Condition relationships and conflicts
+message CheckImmunityRequest {
+  string entity_id = 1;
+  string condition_type = 2;
+}
+
+message CheckImmunityResponse {
+  bool is_immune = 1;
+  repeated string immunity_sources = 2; // What grants the immunity
+  Result status = 3;
+}
+
+message GetConflictingConditionsRequest {
+  string entity_id = 1;
+  string new_condition_type = 2;
+}
+
+message GetConflictingConditionsResponse {
+  repeated Condition conflicting_conditions = 1;
+  repeated ConflictResolution suggested_resolutions = 2;
+  Result status = 3;
+}
+
+message ConflictResolution {
+  string conflict_type = 1;            // "mutually_exclusive", "supersedes", etc.
+  string action = 2;                   // "remove_old", "prevent_new", "stack", etc.
+  repeated string affected_condition_ids = 3;
+  string reason = 4;
+}
+
+message ResolveConflictsRequest {
+  string entity_id = 1;
+  repeated ConflictResolution resolutions = 2;
+}
+
+message ResolveConflictsResponse {
+  repeated Condition removed_conditions = 1;
+  repeated Condition modified_conditions = 2;
+  Result status = 3;
+}
+
+// Condition templates
+message GetConditionTemplatesRequest {
+  string category = 1;                 // "debuff", "buff", "status", etc.
+  string system = 2;                   // "dnd5e", "pathfinder", etc.
+}
+
+message GetConditionTemplatesResponse {
+  repeated ConditionTemplate templates = 1;
+  Result status = 2;
+}
+
+message ConditionTemplate {
+  string type = 1;
+  string name = 2;
+  string description = 3;
+  string category = 4;
+  ConditionSeverity default_severity = 5;
+  ConditionDuration default_duration = 6;
+  repeated ConditionEffect default_effects = 7;
+  StackingBehavior stacking_behavior = 8;
+  repeated string conflicts_with = 9;   // Condition types this conflicts with
+  repeated string immunities = 10;     // What grants immunity to this
+  map<string, string> properties = 11;
+}
+
+message CreateConditionTemplateRequest {
+  ConditionTemplate template = 1;
+}
+
+message CreateConditionTemplateResponse {
+  ConditionTemplate created_template = 1;
+  Result status = 2;
+}
+
+// Advanced operations
+message ProcessConditionTickRequest {
+  string entity_id = 1;                // Process conditions for specific entity
+  string trigger = 2;                  // "start_of_turn", "end_of_turn", etc.
+  int64 current_timestamp = 3;
+}
+
+message ProcessConditionTickResponse {
+  repeated Condition expired_conditions = 1;
+  repeated Condition triggered_conditions = 2;
+  repeated ConditionEffect applied_effects = 3;
+  Result status = 4;
+}
+
+message GetConditionHistoryRequest {
+  string entity_id = 1;
+  int32 limit = 2;
+  int64 since_timestamp = 3;
+  repeated string condition_types = 4;
+}
+
+message GetConditionHistoryResponse {
+  repeated ConditionHistoryEntry history = 1;
+  int32 total_count = 2;
+  Result status = 3;
+}
+
+message ConditionHistoryEntry {
+  Condition condition = 1;
+  string action = 2;                   // "applied", "removed", "modified"
+  int64 timestamp = 3;
+  string reason = 4;
+  string source_entity_id = 5;
+  map<string, string> details = 6;
+}

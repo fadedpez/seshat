@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package seshat;
+
+option go_package = "github.com/seshat/protos/seshat";
+
+// Common types used across all services
+
+// Generic entity representation
+message Entity {
+  string id = 1;
+  string type = 2;
+  map<string, string> properties = 3;
+}
+
+// Position in 2D space (from spatial toolkit)
+message Position {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+// Error details for failed operations
+message ErrorDetails {
+  string code = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}
+
+// Generic result wrapper
+message Result {
+  bool success = 1;
+  ErrorDetails error = 2;
+}
+
+// Event context data (from events toolkit)
+message EventContext {
+  string event_type = 1;
+  string source_entity_id = 2;
+  string target_entity_id = 3;
+  map<string, string> data = 4;
+  repeated ModifierValue modifiers = 5;
+}
+
+// Modifier value (from events toolkit)
+message ModifierValue {
+  string type = 1;
+  int32 value = 2;
+  string source = 3;
+}
+
+// Time duration representation
+message Duration {
+  int64 seconds = 1;
+  int32 nanos = 2;
+}

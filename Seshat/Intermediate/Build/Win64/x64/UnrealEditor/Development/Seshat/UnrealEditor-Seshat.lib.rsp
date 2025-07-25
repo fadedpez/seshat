@@ -1,0 +1,12 @@
+/NOLOGO
+/errorReport:prompt
+/MACHINE:x64
+/SUBSYSTEM:WINDOWS
+/DEF
+/NAME:"UnrealEditor-Seshat.dll"
+/IGNORE:4221
+/NODEFAULTLIB
+"D:/Projects/share/seshat/Seshat/Intermediate/Build/Win64/x64/SeshatEditor/Development/UnrealEd/SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.h.obj"
+"D:/Projects/share/seshat/Seshat/Intermediate/Build/Win64/x64/UnrealEditor/Development/Seshat/Module.Seshat.cpp.obj"
+"D:/Projects/share/seshat/Seshat/Intermediate/Build/Win64/x64/UnrealEditor/Development/Seshat/Default.rc2.res"
+/OUT:"D:/Projects/share/seshat/Seshat/Intermediate/Build/Win64/x64/UnrealEditor/Development/Seshat/UnrealEditor-Seshat.lib"

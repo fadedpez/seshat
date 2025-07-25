@@ -1,0 +1,364 @@
+syntax = "proto3";
+
+package seshat;
+
+import "seshat/common.proto";
+
+option go_package = "github.com/seshat/protos/seshat";
+
+// Resource management service - exposes all resources toolkit functionality
+service ResourceService {
+  // Resource pool management
+  rpc CreateResourcePool(CreateResourcePoolRequest) returns (CreateResourcePoolResponse);
+  rpc GetResourcePool(GetResourcePoolRequest) returns (GetResourcePoolResponse);
+  rpc UpdateResourcePool(UpdateResourcePoolRequest) returns (UpdateResourcePoolResponse);
+  rpc DeleteResourcePool(DeleteResourcePoolRequest) returns (DeleteResourcePoolResponse);
+  
+  // Resource operations
+  rpc ConsumeResource(ConsumeResourceRequest) returns (ConsumeResourceResponse);
+  rpc RestoreResource(RestoreResourceRequest) returns (RestoreResourceResponse);
+  rpc GetResourceStatus(GetResourceStatusRequest) returns (GetResourceStatusResponse);
+  
+  // Batch operations
+  rpc ConsumeMultipleResources(ConsumeMultipleResourcesRequest) returns (ConsumeMultipleResourcesResponse);
+  rpc RestoreAllResources(RestoreAllResourcesRequest) returns (RestoreAllResourcesResponse);
+  
+  // Resource restoration triggers
+  rpc TriggerRestoration(TriggerRestorationRequest) returns (TriggerRestorationResponse);
+  rpc GetRestorationTriggers(GetRestorationTriggersRequest) returns (GetRestorationTriggersResponse);
+  
+  // Resource monitoring
+  rpc GetResourceHistory(GetResourceHistoryRequest) returns (GetResourceHistoryResponse);
+  rpc GetLowResourceAlerts(GetLowResourceAlertsRequest) returns (GetLowResourceAlertsResponse);
+  
+  // Templates and presets
+  rpc GetResourceTemplates(GetResourceTemplatesRequest) returns (GetResourceTemplatesResponse);
+  rpc CreateResourceTemplate(CreateResourceTemplateRequest) returns (CreateResourceTemplateResponse);
+}
+
+// Core resource pool structure
+message ResourcePool {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string owner_entity_id = 4;
+  
+  ResourceType type = 5;
+  int32 current_amount = 6;
+  int32 maximum_amount = 7;
+  int32 minimum_amount = 8;              // Usually 0, but some resources have minimums
+  
+  RestorationConfig restoration = 9;
+  repeated ResourceModifier modifiers = 10;
+  
+  map<string, string> properties = 11;
+  int64 created_timestamp = 12;
+  int64 last_modified_timestamp = 13;
+  int64 last_consumed_timestamp = 14;
+  int64 last_restored_timestamp = 15;
+}
+
+enum ResourceType {
+  RESOURCE_TYPE_UNSPECIFIED = 0;
+  RESOURCE_TYPE_SPELL_SLOTS = 1;         // Spell casting resources
+  RESOURCE_TYPE_HIT_POINTS = 2;          // Health/damage
+  RESOURCE_TYPE_ABILITY_USES = 3;        // Feature uses (rage, channel divinity)
+  RESOURCE_TYPE_AMMUNITION = 4;          // Arrows, bullets, etc.
+  RESOURCE_TYPE_CURRENCY = 5;            // Gold, gems, etc.
+  RESOURCE_TYPE_EXPERIENCE = 6;          // XP, skill points
+  RESOURCE_TYPE_TEMPORARY = 7;           // Temporary hit points, buffs
+  RESOURCE_TYPE_CUSTOM = 8;              // User-defined resources
+}
+
+message RestorationConfig {
+  RestorationType type = 1;
+  int32 amount = 2;                      // How much to restore
+  Duration interval = 3;                 // How often
+  repeated string triggers = 4;          // "short_rest", "long_rest", "dawn", etc.
+  bool automatic = 5;                    // Auto-restore or manual trigger
+  int32 charges_per_trigger = 6;         // For multi-use restoration
+}
+
+enum RestorationType {
+  RESTORATION_TYPE_UNSPECIFIED = 0;
+  RESTORATION_TYPE_NONE = 1;             // No automatic restoration
+  RESTORATION_TYPE_FULL = 2;             // Restore to maximum
+  RESTORATION_TYPE_PARTIAL = 3;          // Restore specific amount
+  RESTORATION_TYPE_PERCENTAGE = 4;       // Restore percentage of max
+  RESTORATION_TYPE_DICE_ROLL = 5;        // Restore random amount
+}
+
+message ResourceModifier {
+  string id = 1;
+  string name = 2;
+  string source = 3;                     // What grants this modifier
+  ModifierType type = 4;
+  int32 value = 5;
+  Duration duration = 6;                 // How long modifier lasts
+  bool affects_maximum = 7;              // Modifies max vs current
+  bool affects_restoration = 8;          // Modifies restoration amount
+}
+
+enum ModifierType {
+  MODIFIER_TYPE_UNSPECIFIED = 0;
+  MODIFIER_TYPE_BONUS = 1;               // Adds to resource
+  MODIFIER_TYPE_PENALTY = 2;             // Subtracts from resource
+  MODIFIER_TYPE_MULTIPLIER = 3;          // Multiplies resource
+  MODIFIER_TYPE_OVERRIDE = 4;            // Sets resource to specific value
+}
+
+// Resource pool operations
+message CreateResourcePoolRequest {
+  string owner_entity_id = 1;
+  string name = 2;
+  string description = 3;
+  ResourceType type = 4;
+  int32 maximum_amount = 5;
+  int32 initial_amount = 6;              // Default: same as maximum
+  RestorationConfig restoration = 7;
+  map<string, string> properties = 8;
+}
+
+message CreateResourcePoolResponse {
+  ResourcePool pool = 1;
+  Result status = 2;
+}
+
+message GetResourcePoolRequest {
+  string pool_id = 1;
+  string owner_entity_id = 2;           // Alternative: get by owner + name
+  string pool_name = 3;
+}
+
+message GetResourcePoolResponse {
+  ResourcePool pool = 1;
+  Result status = 2;
+}
+
+message UpdateResourcePoolRequest {
+  string pool_id = 1;
+  ResourcePoolUpdate update = 2;
+}
+
+message UpdateResourcePoolResponse {
+  ResourcePool updated_pool = 1;
+  Result status = 2;
+}
+
+message ResourcePoolUpdate {
+  string name = 1;
+  string description = 2;
+  int32 maximum_amount = 3;
+  int32 minimum_amount = 4;
+  RestorationConfig restoration = 5;
+  map<string, string> properties = 6;
+}
+
+message DeleteResourcePoolRequest {
+  string pool_id = 1;
+}
+
+message DeleteResourcePoolResponse {
+  Result status = 1;
+}
+
+// Resource consumption and restoration
+message ConsumeResourceRequest {
+  string pool_id = 1;
+  int32 amount = 2;
+  string reason = 3;                     // "spell_cast", "damage_taken", etc.
+  bool allow_overdraw = 4;               // Go below minimum
+  string consumer_entity_id = 5;
+}
+
+message ConsumeResourceResponse {
+  ResourcePool updated_pool = 1;
+  int32 amount_consumed = 2;             // Actual amount consumed (may be less)
+  bool was_sufficient = 3;               // Had enough resources
+  Result status = 4;
+}
+
+message RestoreResourceRequest {
+  string pool_id = 1;
+  int32 amount = 2;                      // 0 = restore to maximum
+  string reason = 3;                     // "rest", "potion", "spell", etc.
+  bool allow_overflow = 4;               // Go above maximum (temporary HP)
+  string restorer_entity_id = 5;
+}
+
+message RestoreResourceResponse {
+  ResourcePool updated_pool = 1;
+  int32 amount_restored = 2;
+  bool was_at_maximum = 3;               // Was already at max before restoration
+  Result status = 4;
+}
+
+message GetResourceStatusRequest {
+  string pool_id = 1;
+  string owner_entity_id = 2;           // Get status for all pools
+}
+
+message GetResourceStatusResponse {
+  repeated ResourceStatus statuses = 1;
+  Result status = 2;
+}
+
+message ResourceStatus {
+  ResourcePool pool = 1;
+  float utilization_percentage = 2;      // Current / Maximum * 100
+  bool is_critical = 3;                  // Below critical threshold
+  bool is_depleted = 4;                  // At minimum
+  bool is_full = 5;                      // At maximum
+  int64 estimated_depletion_time = 6;    // When it will run out (if consuming)
+  int64 next_restoration_time = 7;       // When next restoration occurs
+}
+
+// Batch operations
+message ConsumeMultipleResourcesRequest {
+  repeated ResourceConsumption consumptions = 1;
+  bool all_or_nothing = 2;               // Fail if any single consumption fails
+  string reason = 3;
+}
+
+message ConsumeMultipleResourcesResponse {
+  repeated ConsumeResourceResponse results = 1;
+  bool all_succeeded = 2;
+  repeated string failed_pool_ids = 3;
+  Result status = 4;
+}
+
+message ResourceConsumption {
+  string pool_id = 1;
+  int32 amount = 2;
+  bool allow_overdraw = 3;
+}
+
+message RestoreAllResourcesRequest {
+  string owner_entity_id = 1;
+  string trigger = 2;                    // "short_rest", "long_rest", etc.
+  repeated ResourceType types = 3;       // Only restore specific types
+}
+
+message RestoreAllResourcesResponse {
+  repeated RestoreResourceResponse results = 1;
+  int32 pools_restored = 2;
+  Result status = 3;
+}
+
+// Restoration triggers
+message TriggerRestorationRequest {
+  string trigger_name = 1;               // "short_rest", "long_rest", "dawn"
+  string entity_id = 2;                  // Trigger for specific entity
+  map<string, string> context = 3;      // Additional trigger context
+}
+
+message TriggerRestorationResponse {
+  repeated RestoreResourceResponse restorations = 1;
+  int32 pools_affected = 2;
+  Result status = 3;
+}
+
+message GetRestorationTriggersRequest {
+  string entity_id = 1;
+}
+
+message GetRestorationTriggersResponse {
+  repeated RestorationTrigger triggers = 1;
+  Result status = 2;
+}
+
+message RestorationTrigger {
+  string name = 1;
+  string description = 2;
+  repeated string affected_pool_ids = 3;
+  Duration cooldown = 4;                 // How often this can be triggered
+  int64 last_triggered_timestamp = 5;
+  int64 next_available_timestamp = 6;
+  bool is_available = 7;
+}
+
+// Resource monitoring and history
+message GetResourceHistoryRequest {
+  string pool_id = 1;
+  string owner_entity_id = 2;           // Get history for all pools
+  int32 limit = 3;
+  int64 since_timestamp = 4;
+  repeated string action_types = 5;      // "consume", "restore", "modify"
+}
+
+message GetResourceHistoryResponse {
+  repeated ResourceHistoryEntry history = 1;
+  int32 total_count = 2;
+  Result status = 3;
+}
+
+message ResourceHistoryEntry {
+  string pool_id = 1;
+  string action = 2;                     // "consume", "restore", "create", etc.
+  int32 amount = 3;                      // Amount changed
+  int32 previous_amount = 4;
+  int32 new_amount = 5;
+  string reason = 6;
+  string actor_entity_id = 7;           // Who performed the action
+  int64 timestamp = 8;
+  map<string, string> details = 9;
+}
+
+message GetLowResourceAlertsRequest {
+  string owner_entity_id = 1;
+  float threshold_percentage = 2;        // Alert if below this % (default 25%)
+}
+
+message GetLowResourceAlertsResponse {
+  repeated ResourceAlert alerts = 1;
+  int32 total_alerts = 2;
+  Result status = 3;
+}
+
+message ResourceAlert {
+  ResourcePool pool = 1;
+  AlertSeverity severity = 2;
+  string message = 3;
+  float current_percentage = 4;
+  int64 estimated_depletion_time = 5;
+  repeated string recommended_actions = 6;
+}
+
+enum AlertSeverity {
+  ALERT_SEVERITY_UNSPECIFIED = 0;
+  ALERT_SEVERITY_INFO = 1;               // FYI, not urgent
+  ALERT_SEVERITY_WARNING = 2;            // Should pay attention
+  ALERT_SEVERITY_CRITICAL = 3;           // Urgent action needed
+  ALERT_SEVERITY_EMERGENCY = 4;          // Immediate action required
+}
+
+// Templates and presets
+message GetResourceTemplatesRequest {
+  ResourceType type = 1;                 // Filter by resource type
+  string system = 2;                     // "dnd5e", "pathfinder", etc.
+}
+
+message GetResourceTemplatesResponse {
+  repeated ResourceTemplate templates = 1;
+  Result status = 2;
+}
+
+message ResourceTemplate {
+  string name = 1;
+  string description = 2;
+  ResourceType type = 3;
+  int32 default_maximum = 4;
+  RestorationConfig default_restoration = 5;
+  repeated ResourceModifier default_modifiers = 6;
+  map<string, string> properties = 7;
+  string system = 8;                     // Game system this template is for
+}
+
+message CreateResourceTemplateRequest {
+  ResourceTemplate template = 1;
+}
+
+message CreateResourceTemplateResponse {
+  ResourceTemplate created_template = 1;
+  Result status = 2;
+}

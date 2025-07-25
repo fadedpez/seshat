@@ -1,0 +1,485 @@
+syntax = "proto3";
+
+package seshat;
+
+import "seshat/common.proto";
+import "seshat/spatial.proto";
+import "seshat/selectables.proto";
+
+option go_package = "github.com/seshat/protos/seshat";
+
+// Spawn system service - exposes all spawn toolkit functionality
+service SpawnService {
+  // Spawn engine management
+  rpc CreateSpawnEngine(CreateSpawnEngineRequest) returns (CreateSpawnEngineResponse);
+  rpc GetSpawnEngine(GetSpawnEngineRequest) returns (GetSpawnEngineResponse);
+  rpc DeleteSpawnEngine(DeleteSpawnEngineRequest) returns (DeleteSpawnEngineResponse);
+  
+  // Entity spawning
+  rpc SpawnEntity(SpawnEntityRequest) returns (SpawnEntityResponse);
+  rpc SpawnMultipleEntities(SpawnMultipleEntitiesRequest) returns (SpawnMultipleEntitiesResponse);
+  rpc SpawnFromPattern(SpawnFromPatternRequest) returns (SpawnFromPatternResponse);
+  
+  // Spawn patterns and configurations
+  rpc GetSpawnPatterns(GetSpawnPatternsRequest) returns (GetSpawnPatternsResponse);
+  rpc CreateSpawnPattern(CreateSpawnPatternRequest) returns (CreateSpawnPatternResponse);
+  rpc UpdateSpawnPattern(UpdateSpawnPatternRequest) returns (UpdateSpawnPatternResponse);
+  
+  // Constraint management
+  rpc AddSpawnConstraint(AddSpawnConstraintRequest) returns (AddSpawnConstraintResponse);
+  rpc RemoveSpawnConstraint(RemoveSpawnConstraintRequest) returns (RemoveSpawnConstraintResponse);
+  rpc GetSpawnConstraints(GetSpawnConstraintsRequest) returns (GetSpawnConstraintsResponse);
+  rpc ValidateSpawnPosition(ValidateSpawnPositionRequest) returns (ValidateSpawnPositionResponse);
+  
+  // Capacity analysis and optimization
+  rpc AnalyzeSpawnCapacity(AnalyzeSpawnCapacityRequest) returns (AnalyzeSpawnCapacityResponse);
+  rpc GetOptimalSpawnPositions(GetOptimalSpawnPositionsRequest) returns (GetOptimalSpawnPositionsResponse);
+  rpc RecommendRoomSplit(RecommendRoomSplitRequest) returns (RecommendRoomSplitResponse);
+  
+  // Spawn history and tracking
+  rpc GetSpawnHistory(GetSpawnHistoryRequest) returns (GetSpawnHistoryResponse);
+  rpc GetActiveSpawns(GetActiveSpawnsRequest) returns (GetActiveSpawnsResponse);
+  rpc DespawnEntity(DespawnEntityRequest) returns (DespawnEntityResponse);
+}
+
+// Core spawn engine structure
+message SpawnEngine {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string room_id = 4;                    // Room this engine operates in
+  
+  SpawnConfiguration config = 5;
+  repeated SpawnConstraint constraints = 6;
+  repeated SpawnPattern patterns = 7;
+  
+  SelectionTable entity_table = 8;       // What entities can be spawned
+  
+  map<string, string> properties = 9;
+  int64 created_timestamp = 10;
+  int64 last_spawn_timestamp = 11;
+  int32 total_spawns = 12;
+  bool is_active = 13;
+}
+
+message SpawnConfiguration {
+  int32 max_entities = 1;                // Maximum entities this engine can spawn
+  int32 spawn_rate = 2;                  // Entities per minute/turn/etc.
+  Duration spawn_interval = 3;           // How often to attempt spawning
+  
+  bool respect_capacity = 4;             // Honor room capacity limits
+  bool allow_overlap = 5;                // Allow entities on same position
+  bool auto_despawn = 6;                 // Remove entities when room is full
+  
+  SpawnTiming timing = 7;
+  repeated string spawn_triggers = 8;    // "player_enter", "combat_start", etc.
+}
+
+enum SpawnTiming {
+  SPAWN_TIMING_UNSPECIFIED = 0;
+  SPAWN_TIMING_IMMEDIATE = 1;            // Spawn right away
+  SPAWN_TIMING_DELAYED = 2;              // Wait for interval
+  SPAWN_TIMING_TRIGGERED = 3;            // Wait for specific trigger
+  SPAWN_TIMING_CONDITIONAL = 4;          // Based on conditions
+}
+
+// Spawn patterns define HOW entities are placed
+message SpawnPattern {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  PatternType type = 4;
+  
+  PatternParameters parameters = 5;
+  repeated SpawnConstraint pattern_constraints = 6;
+  
+  int32 min_entities = 7;                // Minimum to spawn with this pattern
+  int32 max_entities = 8;                // Maximum to spawn with this pattern
+  float weight = 9;                      // Selection weight vs other patterns
+}
+
+enum PatternType {
+  PATTERN_TYPE_UNSPECIFIED = 0;
+  PATTERN_TYPE_SCATTERED = 1;            // Random positions
+  PATTERN_TYPE_CLUSTERED = 2;            // Groups near each other
+  PATTERN_TYPE_FORMATION = 3;            // Specific formation (line, circle, etc.)
+  PATTERN_TYPE_PERIMETER = 4;            // Around room edges
+  PATTERN_TYPE_CENTRAL = 5;              // Near room center
+  PATTERN_TYPE_TEAM_BASED = 6;           // Teams with internal formations
+  PATTERN_TYPE_PLAYER_CHOICE = 7;        // Let player choose positions
+  PATTERN_TYPE_ENVIRONMENTAL = 8;        // Based on room features
+}
+
+message PatternParameters {
+  // Scattered parameters
+  int32 min_distance = 1;                // Minimum distance between entities
+  int32 max_distance = 2;                // Maximum distance between entities
+  
+  // Clustered parameters
+  int32 cluster_size = 3;                // Entities per cluster
+  int32 cluster_radius = 4;              // Size of each cluster
+  int32 cluster_separation = 5;          // Distance between clusters
+  
+  // Formation parameters
+  string formation_shape = 6;            // "line", "circle", "triangle", "wedge"
+  int32 formation_spacing = 7;           // Distance between formation positions
+  string formation_facing = 8;           // "north", "player", "center", etc.
+  
+  // Team-based parameters
+  int32 team_count = 9;                  // Number of teams
+  int32 team_size = 10;                  // Entities per team
+  int32 team_separation = 11;            // Distance between teams
+  
+  // Environmental parameters
+  repeated string preferred_features = 12; // "walls", "corners", "open_space"
+  repeated string avoided_features = 13;   // Features to avoid
+  
+  map<string, string> custom_parameters = 14;
+}
+
+// Spawn constraints limit WHERE entities can be placed
+message SpawnConstraint {
+  string id = 1;
+  string name = 2;
+  ConstraintType type = 3;
+  
+  ConstraintParameters parameters = 4;
+  bool is_hard_constraint = 5;           // Must be satisfied vs nice-to-have
+  float violation_penalty = 6;           // Cost of violating soft constraints
+}
+
+enum ConstraintType {
+  CONSTRAINT_TYPE_UNSPECIFIED = 0;
+  CONSTRAINT_TYPE_SPATIAL = 1;           // Position-based constraints
+  CONSTRAINT_TYPE_LINE_OF_SIGHT = 2;     // Visibility requirements
+  CONSTRAINT_TYPE_DISTANCE = 3;          // Distance from other entities/features
+  CONSTRAINT_TYPE_AREA_OF_EFFECT = 4;    // Avoid AoE spell areas
+  CONSTRAINT_TYPE_WALL_PROXIMITY = 5;    // Near/far from walls
+  CONSTRAINT_TYPE_ENTITY_TYPE = 6;       // Based on other entity types present
+  CONSTRAINT_TYPE_ENVIRONMENTAL = 7;     // Based on room features
+  CONSTRAINT_TYPE_CUSTOM = 8;            // User-defined constraints
+}
+
+message ConstraintParameters {
+  // Spatial constraints
+  Position min_position = 1;
+  Position max_position = 2;
+  repeated Position forbidden_positions = 3;
+  repeated Position required_positions = 4;
+  
+  // Line of sight constraints
+  bool requires_line_of_sight_to_player = 5;
+  bool requires_line_of_sight_to_center = 6;
+  repeated string line_of_sight_targets = 7;  // Entity IDs
+  
+  // Distance constraints
+  int32 min_distance_from_player = 8;
+  int32 max_distance_from_player = 9;
+  int32 min_distance_from_entities = 10;
+  int32 max_distance_from_entities = 11;
+  repeated string distance_entity_types = 12;
+  
+  // Wall proximity constraints
+  int32 min_distance_from_walls = 13;
+  int32 max_distance_from_walls = 14;
+  
+  // Environmental constraints
+  repeated string required_features = 15; // Must be near these features
+  repeated string avoided_features = 16;  // Must avoid these features
+  
+  map<string, string> custom_parameters = 17;
+}
+
+// Spawn operations
+message CreateSpawnEngineRequest {
+  string room_id = 1;
+  string name = 2;
+  string description = 3;
+  SpawnConfiguration config = 4;
+  SelectionTable entity_table = 5;       // What entities can be spawned
+}
+
+message CreateSpawnEngineResponse {
+  SpawnEngine engine = 1;
+  Result status = 2;
+}
+
+message GetSpawnEngineRequest {
+  string engine_id = 1;
+  string room_id = 2;                    // Alternative: get by room
+}
+
+message GetSpawnEngineResponse {
+  SpawnEngine engine = 1;
+  Result status = 2;
+}
+
+message DeleteSpawnEngineRequest {
+  string engine_id = 1;
+  bool despawn_entities = 2;             // Remove spawned entities too
+}
+
+message DeleteSpawnEngineResponse {
+  int32 despawned_entities = 1;
+  Result status = 2;
+}
+
+// Entity spawning
+message SpawnEntityRequest {
+  string engine_id = 1;
+  string entity_type = 2;                // Override engine's entity table
+  Position preferred_position = 3;       // Suggestion, may be adjusted
+  string pattern_id = 4;                 // Use specific pattern
+  map<string, string> spawn_options = 5;
+}
+
+message SpawnEntityResponse {
+  SpawnedEntity spawned_entity = 1;
+  repeated string constraint_violations = 2;  // Soft constraints that were violated
+  Result status = 3;
+}
+
+message SpawnMultipleEntitiesRequest {
+  string engine_id = 1;
+  int32 count = 2;
+  repeated string entity_types = 3;      // Specific types to spawn
+  string pattern_id = 4;
+  map<string, string> spawn_options = 5;
+}
+
+message SpawnMultipleEntitiesResponse {
+  repeated SpawnedEntity spawned_entities = 1;
+  repeated string warnings = 2;          // Capacity warnings, etc.
+  SpawnAttemptResult attempt_result = 3;
+  Result status = 4;
+}
+
+message SpawnFromPatternRequest {
+  string engine_id = 1;
+  string pattern_id = 2;
+  map<string, string> pattern_options = 3;  // Override pattern parameters
+}
+
+message SpawnFromPatternResponse {
+  repeated SpawnedEntity spawned_entities = 1;
+  SpawnPattern pattern_used = 2;
+  SpawnAttemptResult attempt_result = 3;
+  Result status = 4;
+}
+
+message SpawnedEntity {
+  Entity entity = 1;
+  Position position = 2;
+  string spawn_engine_id = 3;
+  string pattern_id = 4;                 // Pattern that spawned this entity
+  int64 spawn_timestamp = 5;
+  map<string, string> spawn_metadata = 6; // Additional spawn-specific data
+}
+
+message SpawnAttemptResult {
+  int32 requested_count = 1;
+  int32 successful_spawns = 2;
+  int32 failed_spawns = 3;
+  repeated string failure_reasons = 4;
+  float constraint_satisfaction = 5;      // 0.0 to 1.0, how well constraints were met
+  Duration spawn_duration = 6;           // How long spawning took
+}
+
+// Pattern management
+message GetSpawnPatternsRequest {
+  string engine_id = 1;                  // Get patterns for specific engine
+  PatternType type = 2;                  // Filter by pattern type
+}
+
+message GetSpawnPatternsResponse {
+  repeated SpawnPattern patterns = 1;
+  Result status = 2;
+}
+
+message CreateSpawnPatternRequest {
+  string engine_id = 1;
+  SpawnPattern pattern = 2;
+}
+
+message CreateSpawnPatternResponse {
+  SpawnPattern created_pattern = 1;
+  Result status = 2;
+}
+
+message UpdateSpawnPatternRequest {
+  string pattern_id = 1;
+  SpawnPattern updated_pattern = 2;
+}
+
+message UpdateSpawnPatternResponse {
+  SpawnPattern pattern = 1;
+  Result status = 2;
+}
+
+// Constraint management
+message AddSpawnConstraintRequest {
+  string engine_id = 1;
+  SpawnConstraint constraint = 2;
+}
+
+message AddSpawnConstraintResponse {
+  SpawnConstraint added_constraint = 1;
+  Result status = 2;
+}
+
+message RemoveSpawnConstraintRequest {
+  string engine_id = 1;
+  string constraint_id = 2;
+}
+
+message RemoveSpawnConstraintResponse {
+  Result status = 1;
+}
+
+message GetSpawnConstraintsRequest {
+  string engine_id = 1;
+  ConstraintType type = 2;               // Filter by constraint type
+}
+
+message GetSpawnConstraintsResponse {
+  repeated SpawnConstraint constraints = 1;
+  Result status = 2;
+}
+
+message ValidateSpawnPositionRequest {
+  string engine_id = 1;
+  Position position = 2;
+  string entity_type = 3;
+}
+
+message ValidateSpawnPositionResponse {
+  bool is_valid = 1;
+  repeated string violations = 2;        // Which constraints are violated
+  float constraint_score = 3;            // 0.0 to 1.0, higher is better
+  repeated string suggestions = 4;       // How to make position valid
+  Result status = 5;
+}
+
+// Capacity analysis
+message AnalyzeSpawnCapacityRequest {
+  string engine_id = 1;
+  repeated string entity_types = 2;      // Types to analyze capacity for
+}
+
+message AnalyzeSpawnCapacityResponse {
+  SpawnCapacityAnalysis analysis = 1;
+  Result status = 2;
+}
+
+message SpawnCapacityAnalysis {
+  int32 total_positions = 1;
+  int32 valid_positions = 2;
+  int32 constrained_positions = 3;       // Positions that violate constraints
+  int32 occupied_positions = 4;
+  
+  repeated EntityTypeCapacity type_capacities = 5;
+  float overall_utilization = 6;         // 0.0 to 1.0
+  bool is_over_capacity = 7;
+  
+  repeated string capacity_warnings = 8;
+  repeated string optimization_suggestions = 9;
+}
+
+message EntityTypeCapacity {
+  string entity_type = 1;
+  int32 current_count = 2;
+  int32 max_capacity = 3;
+  int32 recommended_max = 4;             // Considering comfort/gameplay
+  repeated Position available_positions = 5;
+}
+
+message GetOptimalSpawnPositionsRequest {
+  string engine_id = 1;
+  string entity_type = 2;
+  int32 count = 3;                       // How many positions needed
+  string pattern_id = 4;                 // Use specific pattern
+}
+
+message GetOptimalSpawnPositionsResponse {
+  repeated OptimalPosition positions = 1;
+  float overall_score = 2;               // Quality of position set
+  repeated string optimization_notes = 3;
+  Result status = 4;
+}
+
+message OptimalPosition {
+  Position position = 1;
+  float score = 2;                       // Quality score for this position
+  map<string, float> constraint_scores = 3;  // Per-constraint satisfaction
+  repeated string benefits = 4;          // Why this position is good
+  repeated string drawbacks = 5;         // Why this position has issues
+}
+
+message RecommendRoomSplitRequest {
+  string engine_id = 1;
+  int32 target_entity_count = 2;        // How many entities need to fit
+  repeated string entity_types = 3;
+}
+
+message RecommendRoomSplitResponse {
+  bool should_split = 1;
+  repeated RoomSplitOption options = 2;
+  string reasoning = 3;
+  Result status = 4;
+}
+
+message RoomSplitOption {
+  string split_type = 1;                 // "horizontal", "vertical", "quadrant"
+  repeated Room suggested_rooms = 2;     // How to divide the space
+  int32 estimated_capacity = 3;          // Total capacity after split
+  float complexity_score = 4;            // How complex this split is
+  repeated string advantages = 5;
+  repeated string disadvantages = 6;
+}
+
+// Spawn tracking and history
+message GetSpawnHistoryRequest {
+  string engine_id = 1;
+  string room_id = 2;                    // Alternative: get for entire room
+  int32 limit = 3;
+  int64 since_timestamp = 4;
+  repeated string entity_types = 5;
+}
+
+message GetSpawnHistoryResponse {
+  repeated SpawnHistoryEntry history = 1;
+  int32 total_count = 2;
+  Result status = 3;
+}
+
+message SpawnHistoryEntry {
+  SpawnedEntity entity = 1;
+  string action = 2;                     // "spawned", "despawned", "moved"
+  int64 timestamp = 3;
+  string reason = 4;                     // Why this action occurred
+  SpawnAttemptResult attempt_result = 5; // For spawn actions
+  map<string, string> details = 6;
+}
+
+message GetActiveSpawnsRequest {
+  string engine_id = 1;
+  string room_id = 2;                    // Alternative: get for entire room
+  repeated string entity_types = 3;      // Filter by entity types
+}
+
+message GetActiveSpawnsResponse {
+  repeated SpawnedEntity active_spawns = 1;
+  int32 total_count = 2;
+  SpawnCapacityAnalysis current_capacity = 3;
+  Result status = 4;
+}
+
+message DespawnEntityRequest {
+  string entity_id = 1;
+  string reason = 2;                     // "manual", "capacity", "timeout", etc.
+}
+
+message DespawnEntityResponse {
+  SpawnedEntity despawned_entity = 1;
+  Result status = 2;
+}

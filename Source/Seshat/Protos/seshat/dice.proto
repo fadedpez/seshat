@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package seshat;
+
+import "seshat/common.proto";
+
+option go_package = "github.com/seshat/protos/seshat";
+
+// Dice rolling service - exposes all dice toolkit functionality
+service DiceService {
+  // Basic single die roll
+  rpc Roll(RollRequest) returns (RollResponse);
+  
+  // Roll multiple dice of same type
+  rpc RollMultiple(RollMultipleRequest) returns (RollMultipleResponse);
+  
+  // Roll with formula (e.g., "2d6+3", "1d20+5")
+  rpc RollFormula(RollFormulaRequest) returns (RollFormulaResponse);
+  
+  // Stream multiple rolls (for rapid rolling)
+  rpc StreamRolls(stream RollRequest) returns (stream RollResponse);
+  
+  // Get roll statistics/history
+  rpc GetRollHistory(RollHistoryRequest) returns (RollHistoryResponse);
+  
+  // Test dice roller fairness
+  rpc TestFairness(FairnessTestRequest) returns (FairnessTestResponse);
+}
+
+// Basic roll request
+message RollRequest {
+  int32 sides = 1;              // Die type (4, 6, 8, 10, 12, 20, 100)
+  string context = 2;           // Context for logging ("attack", "damage", etc.)
+  string entity_id = 3;         // Who is rolling
+}
+
+message RollResponse {
+  int32 result = 1;
+  string context = 2;
+  string entity_id = 3;
+  int64 timestamp = 4;
+  Result status = 5;
+}
+
+// Multiple dice of same type
+message RollMultipleRequest {
+  int32 count = 1;
+  int32 sides = 2;
+  string context = 3;
+  string entity_id = 4;
+  bool drop_lowest = 5;         // For ability score generation
+  bool drop_highest = 6;
+  int32 keep_count = 7;         // Keep N highest/lowest
+}
+
+message RollMultipleResponse {
+  repeated int32 rolls = 1;
+  int32 total = 2;
+  repeated int32 kept_rolls = 3;  // After dropping dice
+  repeated int32 dropped_rolls = 4;
+  string context = 5;
+  string entity_id = 6;
+  int64 timestamp = 7;
+  Result status = 8;
+}
+
+// Formula-based rolling
+message RollFormulaRequest {
+  string formula = 1;           // "2d6+3", "1d20+5", "4d6kh3" (keep highest 3)
+  string context = 2;
+  string entity_id = 3;
+}
+
+message RollFormulaResponse {
+  string formula = 1;
+  repeated DiceGroup groups = 2;  // Individual parts of formula
+  int32 total = 3;
+  int32 modifier = 4;
+  string context = 5;
+  string entity_id = 6;
+  int64 timestamp = 7;
+  Result status = 8;
+}
+
+message DiceGroup {
+  int32 count = 1;
+  int32 sides = 2;
+  repeated int32 rolls = 3;
+  int32 subtotal = 4;
+  string operation = 5;         // "keep_highest", "keep_lowest", "drop", etc.
+}
+
+// Roll history tracking
+message RollHistoryRequest {
+  string entity_id = 1;
+  string context = 2;           // Filter by context
+  int32 limit = 3;              // Max results
+  int64 since_timestamp = 4;    // Only rolls after this time
+}
+
+message RollHistoryResponse {
+  repeated RollRecord rolls = 1;
+  int32 total_count = 2;
+  Result status = 3;
+}
+
+message RollRecord {
+  string formula = 1;
+  int32 result = 2;
+  string context = 3;
+  string entity_id = 4;
+  int64 timestamp = 5;
+  repeated int32 individual_rolls = 6;
+}
+
+// Fairness testing
+message FairnessTestRequest {
+  int32 sides = 1;
+  int32 sample_size = 2;        // Number of rolls to test
+}
+
+message FairnessTestResponse {
+  repeated int32 distribution = 1;  // Count of each face
+  double chi_squared = 2;
+  double p_value = 3;
+  bool is_fair = 4;             // Statistical fairness assessment
+  int32 sample_size = 5;
+  Result status = 6;
+}

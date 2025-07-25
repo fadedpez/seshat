@@ -1,0 +1,276 @@
+syntax = "proto3";
+
+package seshat;
+
+import "seshat/common.proto";
+import "seshat/spatial.proto";
+
+option go_package = "github.com/seshat/protos/seshat";
+
+// Environment generation service - exposes all environments toolkit functionality
+service EnvironmentService {
+  // Room generation
+  rpc GenerateRoom(GenerateRoomRequest) returns (GenerateRoomResponse);
+  rpc GenerateRoomWithTemplate(GenerateRoomTemplateRequest) returns (GenerateRoomTemplateResponse);
+  
+  // Wall system
+  rpc GenerateWalls(GenerateWallsRequest) returns (GenerateWallsResponse);
+  rpc DestroyWall(DestroyWallRequest) returns (DestroyWallResponse);
+  rpc GetWallInfo(GetWallInfoRequest) returns (GetWallInfoResponse);
+  
+  // Environment themes and materials
+  rpc GetThemes(GetThemesRequest) returns (GetThemesResponse);
+  rpc ApplyTheme(ApplyThemeRequest) returns (ApplyThemeResponse);
+  
+  // Shape templates
+  rpc GetShapeTemplates(GetShapeTemplatesRequest) returns (GetShapeTemplatesResponse);
+  rpc CreateCustomShape(CreateCustomShapeRequest) returns (CreateCustomShapeResponse);
+  
+  // Capacity analysis
+  rpc AnalyzeCapacity(AnalyzeCapacityRequest) returns (AnalyzeCapacityResponse);
+  rpc GetOptimalSize(GetOptimalSizeRequest) returns (GetOptimalSizeResponse);
+}
+
+// Room generation
+message GenerateRoomRequest {
+  int32 width = 1;
+  int32 height = 2;
+  string theme = 3;                      // "dungeon", "forest", "tavern", etc.
+  RoomGenerationOptions options = 4;
+}
+
+message GenerateRoomResponse {
+  Room room = 1;
+  GeneratedEnvironment environment = 2;
+  Result status = 3;
+}
+
+message GenerateRoomTemplateRequest {
+  string template_name = 1;              // "rectangle", "hexagon", "t_shape"
+  int32 scale = 2;                       // Size multiplier
+  string theme = 3;
+  RoomGenerationOptions options = 4;
+}
+
+message GenerateRoomTemplateResponse {
+  Room room = 1;
+  GeneratedEnvironment environment = 2;
+  string template_used = 3;
+  Result status = 4;
+}
+
+message RoomGenerationOptions {
+  float wall_density = 1;                // 0.0 to 1.0
+  float destructible_ratio = 2;          // Ratio of walls that can be destroyed
+  bool include_doors = 3;
+  bool include_furniture = 4;
+  repeated string materials = 5;         // Preferred materials
+  int32 seed = 6;                        // Random seed for reproducible generation
+}
+
+message GeneratedEnvironment {
+  string id = 1;
+  string theme = 2;
+  repeated Wall walls = 3;
+  repeated EnvironmentObject objects = 4;
+  map<string, string> properties = 5;
+  int64 generation_timestamp = 6;
+}
+
+// Wall system
+enum WallType {
+  WALL_TYPE_UNSPECIFIED = 0;
+  WALL_TYPE_STONE = 1;
+  WALL_TYPE_WOOD = 2;
+  WALL_TYPE_METAL = 3;
+  WALL_TYPE_GLASS = 4;
+  WALL_TYPE_MAGICAL = 5;
+  WALL_TYPE_ORGANIC = 6;               // Trees, etc.
+}
+
+enum WallOrientation {
+  WALL_ORIENTATION_UNSPECIFIED = 0;
+  WALL_ORIENTATION_HORIZONTAL = 1;
+  WALL_ORIENTATION_VERTICAL = 2;
+  WALL_ORIENTATION_DIAGONAL = 3;
+}
+
+message Wall {
+  string id = 1;
+  Position start = 2;
+  Position end = 3;
+  WallType type = 4;
+  WallOrientation orientation = 5;
+  bool is_destructible = 6;
+  int32 hit_points = 7;
+  int32 max_hit_points = 8;
+  string material = 9;
+  map<string, string> properties = 10;
+}
+
+message GenerateWallsRequest {
+  string room_id = 1;
+  WallGenerationPattern pattern = 2;
+  RoomGenerationOptions options = 3;
+}
+
+message GenerateWallsResponse {
+  repeated Wall walls = 1;
+  int32 total_walls = 2;
+  int32 destructible_walls = 3;
+  Result status = 4;
+}
+
+enum WallGenerationPattern {
+  WALL_PATTERN_UNSPECIFIED = 0;
+  WALL_PATTERN_PERIMETER = 1;          // Walls around edges
+  WALL_PATTERN_MAZE = 2;               // Maze-like internal walls
+  WALL_PATTERN_ROOMS = 3;              // Divide into smaller rooms
+  WALL_PATTERN_CORRIDOR = 4;           // Central corridor with side rooms
+  WALL_PATTERN_ORGANIC = 5;            // Natural/cave-like walls
+}
+
+message DestroyWallRequest {
+  string room_id = 1;
+  string wall_id = 2;
+  int32 damage_amount = 3;             // 0 = completely destroy
+  string damage_source = 4;
+}
+
+message DestroyWallResponse {
+  Wall updated_wall = 1;               // null if completely destroyed
+  bool was_destroyed = 2;
+  repeated Position debris_positions = 3;  // Where debris appears
+  Result status = 4;
+}
+
+message GetWallInfoRequest {
+  string room_id = 1;
+  string wall_id = 2;
+}
+
+message GetWallInfoResponse {
+  Wall wall = 1;
+  repeated Position blocked_positions = 2;  // Positions this wall blocks
+  Result status = 3;
+}
+
+// Environment objects (furniture, decorations, etc.)
+message EnvironmentObject {
+  string id = 1;
+  string type = 2;                     // "table", "chair", "pillar", etc.
+  Position position = 3;
+  int32 width = 4;                     // Size in grid units
+  int32 height = 5;
+  bool blocks_movement = 6;
+  bool blocks_line_of_sight = 7;
+  string material = 8;
+  map<string, string> properties = 9;
+}
+
+// Themes and materials
+message GetThemesRequest {
+  string category = 1;                 // "dungeon", "outdoor", "urban", etc.
+}
+
+message GetThemesResponse {
+  repeated EnvironmentTheme themes = 1;
+  Result status = 2;
+}
+
+message EnvironmentTheme {
+  string name = 1;
+  string category = 2;
+  string description = 3;
+  repeated string materials = 4;
+  repeated string object_types = 5;
+  map<string, float> generation_weights = 6;  // Probabilities for various features
+  map<string, string> properties = 7;
+}
+
+message ApplyThemeRequest {
+  string room_id = 1;
+  string theme_name = 2;
+  bool preserve_existing = 3;          // Keep existing objects/walls
+}
+
+message ApplyThemeResponse {
+  GeneratedEnvironment updated_environment = 1;
+  repeated string changes_made = 2;
+  Result status = 3;
+}
+
+// Shape templates
+message GetShapeTemplatesRequest {
+  string category = 1;                 // Filter by category
+}
+
+message GetShapeTemplatesResponse {
+  repeated ShapeTemplate templates = 1;
+  Result status = 2;
+}
+
+message ShapeTemplate {
+  string name = 1;
+  string category = 2;
+  string description = 3;
+  int32 min_width = 4;
+  int32 min_height = 5;
+  int32 max_width = 6;
+  int32 max_height = 7;
+  repeated Position fixed_walls = 8;    // Wall positions relative to origin
+  repeated Position required_spaces = 9; // Must-be-empty positions
+  map<string, string> properties = 10;
+}
+
+message CreateCustomShapeRequest {
+  string name = 1;
+  int32 width = 2;
+  int32 height = 3;
+  repeated Position wall_positions = 4;
+  repeated Position required_spaces = 5;
+  map<string, string> properties = 6;
+}
+
+message CreateCustomShapeResponse {
+  ShapeTemplate template = 1;
+  Result status = 2;
+}
+
+// Capacity analysis
+message AnalyzeCapacityRequest {
+  string room_id = 1;
+  repeated string entity_types = 2;    // Types to analyze capacity for
+  bool include_walls = 3;              // Account for wall space
+}
+
+message AnalyzeCapacityResponse {
+  int32 total_positions = 1;
+  int32 available_positions = 2;
+  int32 blocked_positions = 3;
+  repeated CapacityByType type_capacities = 4;
+  float utilization_ratio = 5;         // How full the room is
+  Result status = 6;
+}
+
+message CapacityByType {
+  string entity_type = 1;
+  int32 max_capacity = 2;
+  int32 current_count = 3;
+  repeated Position available_positions = 4;
+}
+
+message GetOptimalSizeRequest {
+  int32 target_entity_count = 1;
+  repeated string entity_types = 2;
+  string theme = 3;
+  RoomGenerationOptions options = 4;
+}
+
+message GetOptimalSizeResponse {
+  int32 recommended_width = 1;
+  int32 recommended_height = 2;
+  int32 estimated_capacity = 3;
+  float estimated_utilization = 4;
+  Result status = 5;
+}

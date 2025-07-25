@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+package seshat;
+
+import "seshat/common.proto";
+
+option go_package = "github.com/seshat/protos/seshat";
+
+// Event system service - exposes all events toolkit functionality
+service EventService {
+  // Publish an event to the bus
+  rpc PublishEvent(PublishEventRequest) returns (PublishEventResponse);
+  
+  // Subscribe to specific event types (streaming)
+  rpc SubscribeToEvents(SubscribeRequest) returns (stream GameEvent);
+  
+  // Subscribe to all events (streaming)
+  rpc SubscribeToAllEvents(SubscribeAllRequest) returns (stream GameEvent);
+  
+  // Get event history
+  rpc GetEventHistory(EventHistoryRequest) returns (EventHistoryResponse);
+  
+  // Clear event history
+  rpc ClearEventHistory(ClearEventHistoryRequest) returns (ClearEventHistoryResponse);
+  
+  // Get active subscriptions
+  rpc GetSubscriptions(GetSubscriptionsRequest) returns (GetSubscriptionsResponse);
+  
+  // Unsubscribe from events
+  rpc Unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse);
+}
+
+// Event publishing
+message PublishEventRequest {
+  GameEvent event = 1;
+}
+
+message PublishEventResponse {
+  Result status = 1;
+  string event_id = 2;
+  int64 timestamp = 3;
+}
+
+// Event subscription
+message SubscribeRequest {
+  repeated string event_types = 1;  // Event types to subscribe to
+  string subscriber_id = 2;         // Client identifier
+  int32 priority = 3;               // Handler priority
+  bool include_history = 4;         // Send historical events first
+}
+
+message SubscribeAllRequest {
+  string subscriber_id = 1;
+  int32 priority = 2;
+  bool include_history = 3;
+}
+
+message UnsubscribeRequest {
+  string subscription_id = 1;
+}
+
+message UnsubscribeResponse {
+  Result status = 1;
+}
+
+// Core event structure
+message GameEvent {
+  string id = 1;
+  string type = 2;                  // "dice.rolled", "entity.moved", etc.
+  EventContext context = 3;
+  int64 timestamp = 4;
+  int32 priority = 5;
+  map<string, string> data = 6;     // Event-specific data
+  string source = 7;                // Event source system
+}
+
+// Event history
+message EventHistoryRequest {
+  repeated string event_types = 1;  // Filter by types
+  string entity_id = 2;             // Filter by entity
+  int32 limit = 3;
+  int64 since_timestamp = 4;
+  int64 until_timestamp = 5;
+}
+
+message EventHistoryResponse {
+  repeated GameEvent events = 1;
+  int32 total_count = 2;
+  Result status = 3;
+}
+
+message ClearEventHistoryRequest {
+  repeated string event_types = 1;  // Clear specific types, empty = all
+  string entity_id = 2;             // Clear for specific entity
+}
+
+message ClearEventHistoryResponse {
+  int32 cleared_count = 1;
+  Result status = 2;
+}
+
+// Subscription management
+message GetSubscriptionsRequest {
+  string subscriber_id = 1;         // Get subscriptions for specific client
+}
+
+message GetSubscriptionsResponse {
+  repeated Subscription subscriptions = 1;
+  Result status = 2;
+}
+
+message Subscription {
+  string id = 1;
+  string subscriber_id = 2;
+  repeated string event_types = 3;
+  int32 priority = 4;
+  int64 created_timestamp = 5;
+  int32 events_received = 6;        // Statistics
+}

@@ -1,0 +1,8 @@
+{
+	"SourceFiles": [
+		"D:\\Projects\\share\\seshat\\Seshat\\Source\\Seshat\\Seshat.Build.cs",
+		"D:\\Projects\\share\\seshat\\Seshat\\Source\\Seshat.Target.cs",
+		"D:\\Projects\\share\\seshat\\Seshat\\Source\\SeshatEditor.Target.cs"
+	],
+	"EngineVersion": "5.6.0"
+}

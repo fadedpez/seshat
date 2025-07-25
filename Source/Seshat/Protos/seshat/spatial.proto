@@ -1,0 +1,327 @@
+syntax = "proto3";
+
+package seshat;
+
+import "seshat/common.proto";
+
+option go_package = "github.com/seshat/protos/seshat";
+
+// Spatial positioning service - exposes all spatial toolkit functionality
+service SpatialService {
+  // Room management
+  rpc CreateRoom(CreateRoomRequest) returns (CreateRoomResponse);
+  rpc GetRoom(GetRoomRequest) returns (GetRoomResponse);
+  rpc ListRooms(ListRoomsRequest) returns (ListRoomsResponse);
+  rpc DeleteRoom(DeleteRoomRequest) returns (DeleteRoomResponse);
+  
+  // Entity placement and movement
+  rpc PlaceEntity(PlaceEntityRequest) returns (PlaceEntityResponse);
+  rpc MoveEntity(MoveEntityRequest) returns (MoveEntityResponse);
+  rpc RemoveEntity(RemoveEntityRequest) returns (RemoveEntityResponse);
+  rpc GetEntityPosition(GetEntityPositionRequest) returns (GetEntityPositionResponse);
+  
+  // Spatial queries
+  rpc GetEntitiesAt(GetEntitiesAtRequest) returns (GetEntitiesAtResponse);
+  rpc GetEntitiesInRange(GetEntitiesInRangeRequest) returns (GetEntitiesInRangeResponse);
+  rpc GetEntitiesInArea(GetEntitiesInAreaRequest) returns (GetEntitiesInAreaResponse);
+  rpc GetEntitiesInLine(GetEntitiesInLineRequest) returns (GetEntitiesInLineResponse);
+  
+  // Pathfinding and movement
+  rpc FindPath(FindPathRequest) returns (FindPathResponse);
+  rpc GetDistance(GetDistanceRequest) returns (GetDistanceResponse);
+  rpc CheckLineOfSight(LineOfSightRequest) returns (LineOfSightResponse);
+  
+  // Multi-room orchestration
+  rpc CreateConnection(CreateConnectionRequest) returns (CreateConnectionResponse);
+  rpc GetConnections(GetConnectionsRequest) returns (GetConnectionsResponse);
+  rpc MoveEntityBetweenRooms(MoveEntityBetweenRoomsRequest) returns (MoveEntityBetweenRoomsResponse);
+  
+  // Grid system queries
+  rpc GetValidPositions(GetValidPositionsRequest) returns (GetValidPositionsResponse);
+  rpc IsValidPosition(IsValidPositionRequest) returns (IsValidPositionResponse);
+}
+
+// Grid types from spatial toolkit
+enum GridType {
+  GRID_TYPE_UNSPECIFIED = 0;
+  GRID_TYPE_SQUARE = 1;       // D&D 5e style
+  GRID_TYPE_HEX = 2;          // Hex grid
+  GRID_TYPE_GRIDLESS = 3;     // Free positioning
+}
+
+// Room creation
+message CreateRoomRequest {
+  string id = 1;                    // Optional, generated if empty
+  int32 width = 2;
+  int32 height = 3;
+  GridType grid_type = 4;
+  map<string, string> properties = 5;
+}
+
+message CreateRoomResponse {
+  Room room = 1;
+  Result status = 2;
+}
+
+message GetRoomRequest {
+  string room_id = 1;
+}
+
+message GetRoomResponse {
+  Room room = 1;
+  Result status = 2;
+}
+
+message ListRoomsRequest {
+  int32 limit = 1;
+  string cursor = 2;                // Pagination
+}
+
+message ListRoomsResponse {
+  repeated Room rooms = 1;
+  string next_cursor = 2;
+  int32 total_count = 3;
+  Result status = 4;
+}
+
+message DeleteRoomRequest {
+  string room_id = 1;
+}
+
+message DeleteRoomResponse {
+  Result status = 1;
+}
+
+// Core room structure
+message Room {
+  string id = 1;
+  int32 width = 2;
+  int32 height = 3;
+  GridType grid_type = 4;
+  repeated EntityPlacement entities = 5;
+  map<string, string> properties = 6;
+  int64 created_timestamp = 7;
+}
+
+message EntityPlacement {
+  Entity entity = 1;
+  Position position = 2;
+  int64 placed_timestamp = 3;
+}
+
+// Entity placement
+message PlaceEntityRequest {
+  string room_id = 1;
+  Entity entity = 2;
+  Position position = 3;
+  bool force = 4;                   // Override occupancy checks
+}
+
+message PlaceEntityResponse {
+  EntityPlacement placement = 1;
+  Result status = 2;
+}
+
+message MoveEntityRequest {
+  string room_id = 1;
+  string entity_id = 2;
+  Position new_position = 3;
+  bool force = 4;
+}
+
+message MoveEntityResponse {
+  EntityPlacement placement = 1;
+  Result status = 2;
+}
+
+message RemoveEntityRequest {
+  string room_id = 1;
+  string entity_id = 2;
+}
+
+message RemoveEntityResponse {
+  Entity entity = 1;
+  Result status = 2;
+}
+
+message GetEntityPositionRequest {
+  string room_id = 1;
+  string entity_id = 2;
+}
+
+message GetEntityPositionResponse {
+  EntityPlacement placement = 1;
+  Result status = 2;
+}
+
+// Spatial queries
+message GetEntitiesAtRequest {
+  string room_id = 1;
+  Position position = 2;
+}
+
+message GetEntitiesAtResponse {
+  repeated EntityPlacement entities = 1;
+  Result status = 2;
+}
+
+message GetEntitiesInRangeRequest {
+  string room_id = 1;
+  Position center = 2;
+  int32 range = 3;
+  repeated string entity_types = 4;  // Filter by type
+}
+
+message GetEntitiesInRangeResponse {
+  repeated EntityPlacement entities = 1;
+  Result status = 2;
+}
+
+message GetEntitiesInAreaRequest {
+  string room_id = 1;
+  Position top_left = 2;
+  Position bottom_right = 3;
+  repeated string entity_types = 4;
+}
+
+message GetEntitiesInAreaResponse {
+  repeated EntityPlacement entities = 1;
+  Result status = 2;
+}
+
+message GetEntitiesInLineRequest {
+  string room_id = 1;
+  Position start = 2;
+  Position end = 3;
+  repeated string entity_types = 4;
+}
+
+message GetEntitiesInLineResponse {
+  repeated EntityPlacement entities = 1;
+  repeated Position line_positions = 2;  // All positions on line
+  Result status = 3;
+}
+
+// Pathfinding
+message FindPathRequest {
+  string room_id = 1;
+  Position start = 2;
+  Position end = 3;
+  repeated string blocked_entity_types = 4;  // Entities that block movement
+  int32 max_distance = 5;                    // Max path length
+}
+
+message FindPathResponse {
+  repeated Position path = 1;
+  int32 distance = 2;
+  bool path_found = 3;
+  Result status = 4;
+}
+
+message GetDistanceRequest {
+  string room_id = 1;
+  Position start = 2;
+  Position end = 3;
+  GridType distance_type = 4;        // How to calculate distance
+}
+
+message GetDistanceResponse {
+  int32 distance = 1;
+  Result status = 2;
+}
+
+message LineOfSightRequest {
+  string room_id = 1;
+  Position start = 2;
+  Position end = 3;
+  repeated string blocking_entity_types = 4;
+}
+
+message LineOfSightResponse {
+  bool has_line_of_sight = 1;
+  repeated Position blocking_positions = 2;
+  repeated EntityPlacement blocking_entities = 3;
+  Result status = 4;
+}
+
+// Multi-room connections
+enum ConnectionType {
+  CONNECTION_TYPE_UNSPECIFIED = 0;
+  CONNECTION_TYPE_DOOR = 1;
+  CONNECTION_TYPE_STAIRS = 2;
+  CONNECTION_TYPE_PASSAGE = 3;
+  CONNECTION_TYPE_PORTAL = 4;
+  CONNECTION_TYPE_BRIDGE = 5;
+  CONNECTION_TYPE_TUNNEL = 6;
+}
+
+message CreateConnectionRequest {
+  string id = 1;                     // Optional
+  ConnectionType type = 2;
+  string room_a_id = 3;
+  Position room_a_position = 4;
+  string room_b_id = 5;
+  Position room_b_position = 6;
+  map<string, string> properties = 7;
+}
+
+message CreateConnectionResponse {
+  RoomConnection connection = 1;
+  Result status = 2;
+}
+
+message GetConnectionsRequest {
+  string room_id = 1;                // Get connections for specific room
+}
+
+message GetConnectionsResponse {
+  repeated RoomConnection connections = 1;
+  Result status = 2;
+}
+
+message RoomConnection {
+  string id = 1;
+  ConnectionType type = 2;
+  string room_a_id = 3;
+  Position room_a_position = 4;
+  string room_b_id = 5;
+  Position room_b_position = 6;
+  map<string, string> properties = 7;
+  bool is_active = 8;                // Can be used for movement
+}
+
+message MoveEntityBetweenRoomsRequest {
+  string entity_id = 1;
+  string from_room_id = 2;
+  string to_room_id = 3;
+  string connection_id = 4;          // Which connection to use
+}
+
+message MoveEntityBetweenRoomsResponse {
+  EntityPlacement new_placement = 1;
+  Result status = 2;
+}
+
+// Grid validation
+message GetValidPositionsRequest {
+  string room_id = 1;
+  repeated string exclude_entity_types = 2;  // Don't include positions with these
+}
+
+message GetValidPositionsResponse {
+  repeated Position positions = 1;
+  int32 total_count = 2;
+  Result status = 3;
+}
+
+message IsValidPositionRequest {
+  string room_id = 1;
+  Position position = 2;
+  string entity_type = 3;            // Check if this type can be placed
+}
+
+message IsValidPositionResponse {
+  bool is_valid = 1;
+  string reason = 2;                 // Why invalid, if applicable
+  Result status = 3;
+}

@@ -1,0 +1,16 @@
+version: v1
+plugins:
+  # Generate Go code
+  - plugin: buf.build/protocolbuffers/go
+    out: ../SeshatServer/generated
+    opt:
+      - paths=source_relative
+  - plugin: buf.build/grpc/go
+    out: ../SeshatServer/generated
+    opt:
+      - paths=source_relative
+  # Generate C++ code for UE
+  - plugin: buf.build/protocolbuffers/cpp
+    out: generated/cpp
+  - plugin: buf.build/grpc/cpp
+    out: generated/cpp
