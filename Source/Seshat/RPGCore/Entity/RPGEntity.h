@@ -111,7 +111,7 @@ public:
     FString GetEntityType() const { return GetType(); }
 
     // Factory method for creating entities
-    UFUNCTION(BlueprintCallable, Category = "RPG Entity", CallInEditor = true)
+    UFUNCTION(BlueprintCallable, Category = "RPG Entity", CallInEditor)
     static URPGEntityObject* CreateEntity(UObject* Outer, const FString& EntityType, 
                                          const FString& EntityID = TEXT(""));
 

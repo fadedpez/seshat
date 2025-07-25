@@ -82,7 +82,7 @@ public:
     FOnEntityUnregistered OnEntityUnregistered;
 
     // Debug and utilities
-    UFUNCTION(BlueprintCallable, Category = "RPG Entity", CallInEditor = true)
+    UFUNCTION(BlueprintCallable, Category = "RPG Entity", CallInEditor)
     void DumpEntityRegistry() const;
 
     UFUNCTION(BlueprintCallable, Category = "RPG Entity")

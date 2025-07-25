@@ -59,10 +59,8 @@ struct SESHAT_API FRPGEntityError
     FString ErrorMessage;
 
     // Utility methods
-    UFUNCTION(BlueprintCallable, Category = "RPG Entity Error")
     bool IsValid() const { return ErrorType == ERPGEntityError::None; }
 
-    UFUNCTION(BlueprintCallable, Category = "RPG Entity Error")
     FString GetFormattedMessage() const;
 };
 
