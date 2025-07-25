@@ -184,3 +184,41 @@ bool URPGDiceSubsystem::IsToolkitLoaded() const
 {
     return bFunctionsLoaded;
 }
+
+int32 URPGDiceSubsystem::RollForEntity(int32 Sides, TScriptInterface<IRPGEntityInterface> Entity)
+{
+    // For now, just roll normally - in the future this will include entity-specific modifiers via event system
+    int32 BaseRoll = Roll(Sides);
+    
+    if (Entity.GetInterface())
+    {
+        UE_LOG(LogTemp, Log, TEXT("RPGDiceSubsystem::RollForEntity: Entity %s:%s rolled d%d = %d"), 
+               *Entity->GetType(), *Entity->GetID(), Sides, BaseRoll);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Log, TEXT("RPGDiceSubsystem::RollForEntity: No entity provided, rolled d%d = %d"), 
+               Sides, BaseRoll);
+    }
+    
+    return BaseRoll;
+}
+
+int32 URPGDiceSubsystem::RollWithAdvantageForEntity(int32 Sides, TScriptInterface<IRPGEntityInterface> Entity)
+{
+    // For now, just roll with advantage - in the future this will include entity-specific modifiers via event system
+    int32 Result = RollWithAdvantage(Sides);
+    
+    if (Entity.GetInterface())
+    {
+        UE_LOG(LogTemp, Log, TEXT("RPGDiceSubsystem::RollWithAdvantageForEntity: Entity %s:%s rolled d%d with advantage = %d"), 
+               *Entity->GetType(), *Entity->GetID(), Sides, Result);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Log, TEXT("RPGDiceSubsystem::RollWithAdvantageForEntity: No entity provided, rolled d%d with advantage = %d"), 
+               Sides, Result);
+    }
+    
+    return Result;
+}

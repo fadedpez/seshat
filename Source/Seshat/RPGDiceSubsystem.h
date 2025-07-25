@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "RPGCore/Entity/RPGEntity.h"
 #include "RPGDiceSubsystem.generated.h"
 
 /**
@@ -56,6 +57,26 @@ public:
      */
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
     bool IsToolkitLoaded() const;
+
+    // Entity-aware dice rolling methods (prepares for event system integration)
+    
+    /**
+     * Roll a die for a specific entity (future: will include entity modifiers)
+     * @param Sides Number of sides on the die
+     * @param Entity The entity performing the roll
+     * @return Roll result
+     */
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    int32 RollForEntity(int32 Sides, TScriptInterface<IRPGEntityInterface> Entity);
+
+    /**
+     * Roll with advantage for a specific entity
+     * @param Sides Number of sides on the die
+     * @param Entity The entity performing the roll
+     * @return The higher of two rolls
+     */
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    int32 RollWithAdvantageForEntity(int32 Sides, TScriptInterface<IRPGEntityInterface> Entity);
 
 private:
     /** Function pointers to DLL functions */

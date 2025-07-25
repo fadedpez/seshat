@@ -27,6 +27,7 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 #line 1 "cgo-generated-wrapper"
 
 
+
 /* End of preamble from import "C" comments.  */
 
 
@@ -87,6 +88,13 @@ extern __declspec(dllexport) char* CreateSquareGrid(float width, float height);
 extern __declspec(dllexport) int RollDice(int sides);
 extern __declspec(dllexport) float CalculateDistance(float x1, float y1, float x2, float y2);
 extern __declspec(dllexport) int IsValidPosition(float gridWidth, float gridHeight, float x, float y);
+extern __declspec(dllexport) int CreateEntity(char* entityType, char* entityID);
+extern __declspec(dllexport) int ValidateEntity(char* entityType, char* entityID);
+extern __declspec(dllexport) char* GetEntityType(int entityHandle);
+extern __declspec(dllexport) char* GetEntityID(int entityHandle);
+extern __declspec(dllexport) void DestroyEntity(int entityHandle);
+extern __declspec(dllexport) int GetEntityCount();
+extern __declspec(dllexport) int EntityExists(char* entityType, char* entityID);
 
 #ifdef __cplusplus
 }
