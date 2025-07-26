@@ -412,8 +412,9 @@ void URPGEventBusSubsystem::ProcessDeferredEvents()
 void URPGEventBusSubsystem::LoadToolkitDLL()
 {
     // Use same DLL loading pattern as RPGDiceSubsystem
-    FString BaseDir = FPaths::ProjectDir();
-    FString LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/RPGToolkit/rpg_toolkit.dll"));
+    // Construct the path to our DLL in the proper binary directory
+    FString BinariesDir = FPaths::Combine(FPaths::ProjectDir(), TEXT("Binaries"), FPlatformProcess::GetBinariesSubdirectory());
+    FString LibraryPath = FPaths::Combine(BinariesDir, TEXT("rpg_toolkit.dll"));
     LibraryPath = FPaths::ConvertRelativePathToFull(LibraryPath);
 
     if (!FPaths::FileExists(LibraryPath))
