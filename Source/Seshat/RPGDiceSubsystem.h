@@ -4,7 +4,12 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "UObject/ScriptInterface.h"
 #include "RPGCore/Entity/RPGEntity.h"
+#include "RPGCore/Events/RPGEventTypes.h"
+#include "RPGCore/Events/RPGEventContext.h"
 #include "RPGDiceSubsystem.generated.h"
+
+// Forward declarations
+class URPGEventBusSubsystem;
 
 /**
  * Subsystem that provides dice rolling functionality using the rpg-toolkit
@@ -79,6 +84,21 @@ public:
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
     int32 RollWithAdvantageForEntity(int32 Sides, TScriptInterface<IRPGEntityInterface> Entity);
 
+    // Event integration methods
+    
+    /**
+     * Enable or disable event publishing for dice rolls
+     * @param bEnabled Whether to publish events for dice rolls
+     */
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    void SetEventPublishingEnabled(bool bEnabled) { bPublishEvents = bEnabled; }
+
+    /**
+     * Check if event publishing is enabled
+     */
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    bool IsEventPublishingEnabled() const { return bPublishEvents; }
+
 private:
     /** Function pointers to DLL functions */
     typedef int32 (*RollDiceFunc)(int32);
@@ -95,6 +115,13 @@ private:
     /** Handle to the loaded DLL */
     void* ToolkitDLLHandle;
 
+    /** Whether to publish events for dice rolls */
+    bool bPublishEvents = true;
+
     /** Load the DLL and function pointers */
     void LoadDLLFunctions();
+
+    /** Event publishing helpers */
+    void PublishDiceRollEvent(int32 Sides, int32 Result, TScriptInterface<IRPGEntityInterface> Entity = nullptr);
+    URPGEventBusSubsystem* GetEventBusSubsystem() const;
 };
