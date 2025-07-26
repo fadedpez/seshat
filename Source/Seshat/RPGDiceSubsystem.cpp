@@ -64,9 +64,9 @@ void URPGDiceSubsystem::Deinitialize()
 
 void URPGDiceSubsystem::LoadDLLFunctions()
 {
-    // Construct the path to our DLL
-    FString BaseDir = FPaths::ProjectDir();
-    FString LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/RPGToolkit/rpg_toolkit.dll"));
+    // Construct the path to our DLL in the proper binary directory
+    FString BinariesDir = FPaths::Combine(FPaths::ProjectDir(), TEXT("Binaries"), FPlatformProcess::GetBinariesSubdirectory());
+    FString LibraryPath = FPaths::Combine(BinariesDir, TEXT("rpg_toolkit.dll"));
     LibraryPath = FPaths::ConvertRelativePathToFull(LibraryPath);
 
     UE_LOG(LogTemp, Warning, TEXT("RPGDiceSubsystem: Attempting to load DLL from: %s"), *LibraryPath);
