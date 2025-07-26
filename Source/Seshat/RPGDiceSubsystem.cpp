@@ -1,6 +1,8 @@
 #include "RPGDiceSubsystem.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/Paths.h"
+#include "RPGCore/Events/RPGEventBusSubsystem.h"
+#include "RPGCore/Events/RPGEvent.h"
 
 void URPGDiceSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -127,6 +129,12 @@ int32 URPGDiceSubsystem::Roll(int32 Sides)
     int32 Result = RollDiceFuncPtr(Sides);
     UE_LOG(LogTemp, Log, TEXT("RPGDiceSubsystem::Roll: Rolled d%d = %d"), Sides, Result);
     
+    // Publish dice roll event
+    if (Result > 0)
+    {
+        PublishDiceRollEvent(Sides, Result);
+    }
+    
     return Result;
 }
 
@@ -187,8 +195,20 @@ bool URPGDiceSubsystem::IsToolkitLoaded() const
 
 int32 URPGDiceSubsystem::RollForEntity(int32 Sides, TScriptInterface<IRPGEntityInterface> Entity)
 {
-    // For now, just roll normally - in the future this will include entity-specific modifiers via event system
-    int32 BaseRoll = Roll(Sides);
+    // Roll the dice without publishing event (we'll publish entity-specific event)
+    if (!bFunctionsLoaded || !RollDiceFuncPtr)
+    {
+        UE_LOG(LogTemp, Error, TEXT("RPGDiceSubsystem::RollForEntity: Toolkit not loaded"));
+        return -1;
+    }
+    
+    if (Sides <= 0)
+    {
+        UE_LOG(LogTemp, Error, TEXT("RPGDiceSubsystem::RollForEntity: Invalid sides: %d"), Sides);
+        return -1;
+    }
+    
+    int32 BaseRoll = RollDiceFuncPtr(Sides);
     
     if (Entity.GetInterface())
     {
@@ -201,24 +221,79 @@ int32 URPGDiceSubsystem::RollForEntity(int32 Sides, TScriptInterface<IRPGEntityI
                Sides, BaseRoll);
     }
     
+    // Publish entity-specific dice roll event
+    if (BaseRoll > 0)
+    {
+        PublishDiceRollEvent(Sides, BaseRoll, Entity);
+    }
+    
     return BaseRoll;
 }
 
 int32 URPGDiceSubsystem::RollWithAdvantageForEntity(int32 Sides, TScriptInterface<IRPGEntityInterface> Entity)
 {
-    // For now, just roll with advantage - in the future this will include entity-specific modifiers via event system
-    int32 Result = RollWithAdvantage(Sides);
+    // Roll dice with advantage without publishing individual roll events
+    int32 Roll1 = RollDiceFuncPtr(Sides);
+    int32 Roll2 = RollDiceFuncPtr(Sides);
+    
+    int32 Result = FMath::Max(Roll1, Roll2);
     
     if (Entity.GetInterface())
     {
-        UE_LOG(LogTemp, Log, TEXT("RPGDiceSubsystem::RollWithAdvantageForEntity: Entity %s:%s rolled d%d with advantage = %d"), 
-               *Entity->GetType(), *Entity->GetID(), Sides, Result);
+        UE_LOG(LogTemp, Log, TEXT("RPGDiceSubsystem::RollWithAdvantageForEntity: Entity %s:%s rolled d%d with advantage: %d, %d -> %d"), 
+               *Entity->GetType(), *Entity->GetID(), Sides, Roll1, Roll2, Result);
     }
     else
     {
-        UE_LOG(LogTemp, Log, TEXT("RPGDiceSubsystem::RollWithAdvantageForEntity: No entity provided, rolled d%d with advantage = %d"), 
-               Sides, Result);
+        UE_LOG(LogTemp, Log, TEXT("RPGDiceSubsystem::RollWithAdvantageForEntity: No entity provided, rolled d%d with advantage: %d, %d -> %d"), 
+               Sides, Roll1, Roll2, Result);
+    }
+    
+    // Publish entity-specific advantage roll event
+    if (Result > 0)
+    {
+        PublishDiceRollEvent(Sides, Result, Entity);
     }
     
     return Result;
+}
+
+void URPGDiceSubsystem::PublishDiceRollEvent(int32 Sides, int32 Result, TScriptInterface<IRPGEntityInterface> Entity)
+{
+    if (!bPublishEvents)
+    {
+        return;
+    }
+    
+    URPGEventBusSubsystem* EventBus = GetEventBusSubsystem();
+    if (!EventBus)
+    {
+        UE_LOG(LogTemp, VeryVerbose, TEXT("RPGDiceSubsystem::PublishDiceRollEvent: Event bus not available"));
+        return;
+    }
+    
+    // Create dice roll event context
+    FRPGEventContext EventContext = URPGEvent::CreateDiceRollEvent(Entity, Sides, Result);
+    
+    // Add additional dice roll specific data
+    EventContext.SetStringData(TEXT("DiceType"), FString::Printf(TEXT("d%d"), Sides));
+    EventContext.SetBoolData(TEXT("Success"), Result > 0);
+    
+    // Add modifiers if this was an advantage/disadvantage roll
+    // (we could detect this by tracking the call stack in the future)
+    
+    // Publish the event
+    bool bEventPublished = EventBus->PublishEvent(EventContext);
+    
+    UE_LOG(LogTemp, VeryVerbose, TEXT("RPGDiceSubsystem::PublishDiceRollEvent: Published dice roll event (d%d=%d) - %s"), 
+           Sides, Result, bEventPublished ? TEXT("Success") : TEXT("Failed"));
+}
+
+URPGEventBusSubsystem* URPGDiceSubsystem::GetEventBusSubsystem() const
+{
+    if (UGameInstance* GameInstance = GetGameInstance())
+    {
+        return GameInstance->GetSubsystem<URPGEventBusSubsystem>();
+    }
+    return nullptr;
 }
