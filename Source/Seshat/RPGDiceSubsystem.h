@@ -100,12 +100,14 @@ public:
     bool IsEventPublishingEnabled() const { return bPublishEvents; }
 
 private:
-    /** Function pointers to DLL functions */
-    typedef int32 (*RollDiceFunc)(int32);
-    typedef char* (*GetVersionFunc)();
+    /** Function pointers to actual toolkit DLL functions */
+    typedef void* (*CreateDiceRollerFunc)();
+    typedef int32 (*RollDieFunc)(void*, int32);
+    typedef ANSICHAR* (*GetVersionFunc)();
     typedef int32 (*InitializeFunc)();
 
-    RollDiceFunc RollDiceFuncPtr;
+    CreateDiceRollerFunc CreateDiceRollerFuncPtr;
+    RollDieFunc RollDieFuncPtr;
     GetVersionFunc GetVersionFuncPtr;
     InitializeFunc InitializeFuncPtr;
 
@@ -114,6 +116,9 @@ private:
 
     /** Handle to the loaded DLL */
     void* ToolkitDLLHandle;
+
+    /** Dice roller instance from the toolkit */
+    void* DiceRollerPtr;
 
     /** Whether to publish events for dice rolls */
     bool bPublishEvents = true;

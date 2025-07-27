@@ -12,9 +12,11 @@ void URPGDiceSubsystem::Initialize(FSubsystemCollectionBase& Collection)
     
     bFunctionsLoaded = false;
     ToolkitDLLHandle = nullptr;
-    RollDiceFuncPtr = nullptr;
+    CreateDiceRollerFuncPtr = nullptr;
+    RollDieFuncPtr = nullptr;
     GetVersionFuncPtr = nullptr;
     InitializeFuncPtr = nullptr;
+    DiceRollerPtr = nullptr;
     
     // Load DLL functions
     LoadDLLFunctions();
@@ -40,6 +42,13 @@ void URPGDiceSubsystem::Initialize(FSubsystemCollectionBase& Collection)
             int32 InitResult = InitializeFuncPtr();
             UE_LOG(LogTemp, Warning, TEXT("RPGDiceSubsystem: Toolkit initialize result: %d"), InitResult);
         }
+        
+        // Create dice roller instance
+        if (CreateDiceRollerFuncPtr)
+        {
+            DiceRollerPtr = CreateDiceRollerFuncPtr();
+            UE_LOG(LogTemp, Warning, TEXT("RPGDiceSubsystem: Dice roller created: %s"), DiceRollerPtr ? TEXT("OK") : TEXT("FAILED"));
+        }
     }
     else
     {
@@ -51,9 +60,11 @@ void URPGDiceSubsystem::Deinitialize()
 {
     // Clear function state to prevent any calls during shutdown
     bFunctionsLoaded = false;
-    RollDiceFuncPtr = nullptr;
+    CreateDiceRollerFuncPtr = nullptr;
+    RollDieFuncPtr = nullptr;
     GetVersionFuncPtr = nullptr;
     InitializeFuncPtr = nullptr;
+    DiceRollerPtr = nullptr;
     ToolkitDLLHandle = nullptr;
     
     // Don't unload DLL - let Windows handle cleanup on process exit
@@ -89,15 +100,17 @@ void URPGDiceSubsystem::LoadDLLFunctions()
 
     UE_LOG(LogTemp, Warning, TEXT("RPGDiceSubsystem: Successfully loaded DLL"));
     
-    // Load function pointers
-    RollDiceFuncPtr = (RollDiceFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("RollDice"));
+    // Load function pointers for actual toolkit API
+    CreateDiceRollerFuncPtr = (CreateDiceRollerFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("CreateDiceRoller"));
+    RollDieFuncPtr = (RollDieFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("RollDie"));
     GetVersionFuncPtr = (GetVersionFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetVersion"));
     InitializeFuncPtr = (InitializeFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("Initialize"));
     
     // Check if all functions were loaded
-    bFunctionsLoaded = (RollDiceFuncPtr != nullptr) && 
-                      (GetVersionFuncPtr != nullptr) && 
-                      (InitializeFuncPtr != nullptr);
+    bFunctionsLoaded = (CreateDiceRollerFuncPtr != nullptr) && 
+                       (RollDieFuncPtr != nullptr) && 
+                       (GetVersionFuncPtr != nullptr) && 
+                       (InitializeFuncPtr != nullptr);
     
     if (bFunctionsLoaded)
     {
@@ -106,7 +119,8 @@ void URPGDiceSubsystem::LoadDLLFunctions()
     else
     {
         UE_LOG(LogTemp, Error, TEXT("RPGDiceSubsystem: Failed to load some DLL functions"));
-        UE_LOG(LogTemp, Error, TEXT("  RollDice: %s"), RollDiceFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Error, TEXT("  CreateDiceRoller: %s"), CreateDiceRollerFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Error, TEXT("  RollDie: %s"), RollDieFuncPtr ? TEXT("OK") : TEXT("FAILED"));
         UE_LOG(LogTemp, Error, TEXT("  GetVersion: %s"), GetVersionFuncPtr ? TEXT("OK") : TEXT("FAILED"));
         UE_LOG(LogTemp, Error, TEXT("  Initialize: %s"), InitializeFuncPtr ? TEXT("OK") : TEXT("FAILED"));
     }
@@ -114,9 +128,11 @@ void URPGDiceSubsystem::LoadDLLFunctions()
 
 int32 URPGDiceSubsystem::Roll(int32 Sides)
 {
-    if (!bFunctionsLoaded || !RollDiceFuncPtr)
+    UE_LOG(LogTemp, Warning, TEXT("RPGDiceSubsystem::Roll: CALLED with Sides=%d"), Sides);
+    
+    if (!bFunctionsLoaded || !RollDieFuncPtr || !DiceRollerPtr)
     {
-        UE_LOG(LogTemp, Error, TEXT("RPGDiceSubsystem::Roll: Toolkit not loaded"));
+        UE_LOG(LogTemp, Error, TEXT("RPGDiceSubsystem::Roll: Toolkit not loaded or roller not created"));
         return -1;
     }
     
@@ -126,8 +142,8 @@ int32 URPGDiceSubsystem::Roll(int32 Sides)
         return -1;
     }
     
-    int32 Result = RollDiceFuncPtr(Sides);
-    UE_LOG(LogTemp, Log, TEXT("RPGDiceSubsystem::Roll: Rolled d%d = %d"), Sides, Result);
+    int32 Result = RollDieFuncPtr(DiceRollerPtr, Sides);
+    UE_LOG(LogTemp, Warning, TEXT("RPGDiceSubsystem::Roll: Rolled d%d = %d"), Sides, Result);
     
     // Publish dice roll event
     if (Result > 0)
@@ -196,7 +212,7 @@ bool URPGDiceSubsystem::IsToolkitLoaded() const
 int32 URPGDiceSubsystem::RollForEntity(int32 Sides, TScriptInterface<IRPGEntityInterface> Entity)
 {
     // Roll the dice without publishing event (we'll publish entity-specific event)
-    if (!bFunctionsLoaded || !RollDiceFuncPtr)
+    if (!bFunctionsLoaded || !RollDieFuncPtr || !DiceRollerPtr)
     {
         UE_LOG(LogTemp, Error, TEXT("RPGDiceSubsystem::RollForEntity: Toolkit not loaded"));
         return -1;
@@ -208,7 +224,7 @@ int32 URPGDiceSubsystem::RollForEntity(int32 Sides, TScriptInterface<IRPGEntityI
         return -1;
     }
     
-    int32 BaseRoll = RollDiceFuncPtr(Sides);
+    int32 BaseRoll = RollDieFuncPtr(DiceRollerPtr, Sides);
     
     if (Entity.GetInterface())
     {
@@ -233,8 +249,8 @@ int32 URPGDiceSubsystem::RollForEntity(int32 Sides, TScriptInterface<IRPGEntityI
 int32 URPGDiceSubsystem::RollWithAdvantageForEntity(int32 Sides, TScriptInterface<IRPGEntityInterface> Entity)
 {
     // Roll dice with advantage without publishing individual roll events
-    int32 Roll1 = RollDiceFuncPtr(Sides);
-    int32 Roll2 = RollDiceFuncPtr(Sides);
+    int32 Roll1 = RollDieFuncPtr(DiceRollerPtr, Sides);
+    int32 Roll2 = RollDieFuncPtr(DiceRollerPtr, Sides);
     
     int32 Result = FMath::Max(Roll1, Roll2);
     
