@@ -20,6 +20,12 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
 
 
+#line 3 "dice_bindings.go"
+
+#include <stdlib.h>
+
+#line 1 "cgo-generated-wrapper"
+
 
 #line 3 "simple_bindings.go"
 
@@ -88,6 +94,8 @@ extern __declspec(dllexport) char* GetEntityID(int entityHandle);
 extern __declspec(dllexport) void DestroyEntity(int entityHandle);
 extern __declspec(dllexport) int GetEntityCount();
 extern __declspec(dllexport) int EntityExists(char* entityType, char* entityID);
+extern __declspec(dllexport) void* CreateDiceRoller();
+extern __declspec(dllexport) int RollDie(void* rollerPtr, int sides);
 extern __declspec(dllexport) char* GetVersion();
 extern __declspec(dllexport) int Initialize();
 extern __declspec(dllexport) void Cleanup();

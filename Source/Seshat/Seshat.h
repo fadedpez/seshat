@@ -4,3 +4,7 @@
 
 #include "CoreMinimal.h"
 
+#ifndef SESHAT_API
+#define SESHAT_API DLLEXPORT
+#endif
+

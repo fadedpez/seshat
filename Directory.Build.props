@@ -1,0 +1,7 @@
+  <Project>
+    <PropertyGroup>
+      <!-- Exclude NuGet vulnerability warnings from being treated as build errors -->
+      <!-- This is a standard workaround for UE projects where Epic ships with vulnerable packages -->
+      <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+    </PropertyGroup>
+  </Project>
