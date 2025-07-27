@@ -15,6 +15,7 @@
 *.so
 *.dylib
 *.dll
+!Binaries/Win64/rpg_toolkit.dll
 
 # Fortran module files
 *.mod
