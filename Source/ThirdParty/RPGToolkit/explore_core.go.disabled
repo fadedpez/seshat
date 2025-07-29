@@ -1,0 +1,30 @@
+package main
+
+import (
+	"fmt"
+	"reflect"
+
+	"github.com/KirkDiggler/rpg-toolkit/core"
+)
+
+func main() {
+	// Explore what's available in the core package
+	fmt.Println("Exploring rpg-toolkit/core package...")
+	
+	// Let's see what types are available
+	fmt.Println("\nChecking for core.Entity interface...")
+	var entity core.Entity
+	entityType := reflect.TypeOf(&entity).Elem()
+	fmt.Printf("Entity interface has %d methods:\n", entityType.NumMethod())
+	for i := 0; i < entityType.NumMethod(); i++ {
+		method := entityType.Method(i)
+		fmt.Printf("  - %s: %v\n", method.Name, method.Type)
+	}
+	
+	fmt.Println("\nChecking for other types in core package...")
+	// We'll try to create instances of common types that might exist
+	
+	// Try to find EventBus
+	fmt.Println("\nLooking for EventBus...")
+	// This will show us compile errors if types don't exist
+}

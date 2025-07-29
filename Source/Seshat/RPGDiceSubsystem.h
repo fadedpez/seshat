@@ -25,91 +25,114 @@ public:
     virtual void Deinitialize() override;
     // End USubsystem
 
-    /**
-     * Roll a single die with the specified number of sides
-     * @param Sides Number of sides on the die (must be > 0)
-     * @return The roll result (1 to Sides), or -1 on error
-     */
-    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 Roll(int32 Sides);
 
-    /**
-     * Roll a die with advantage (roll twice, take higher)
-     * @param Sides Number of sides on the die
-     * @return The higher of two rolls
-     */
+    // Roller Interface Functions (from dice/roller.go)
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 RollWithAdvantage(int32 Sides);
+    int32 RollerRoll(int32 Size);
 
-    /**
-     * Roll a die with disadvantage (roll twice, take lower)
-     * @param Sides Number of sides on the die
-     * @return The lower of two rolls
-     */
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 RollWithDisadvantage(int32 Sides);
+    TArray<int32> RollerRollN(int32 Count, int32 Size);
 
-    /**
-     * Roll multiple dice and return individual results
-     * @param Count Number of dice to roll
-     * @param Sides Number of sides on each die
-     * @return Array of individual roll results
-     */
+    // Roll Struct Functions (from dice/modifier.go)  
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    TArray<int32> RollMultiple(int32 Count, int32 Sides);
+    int32 CreateRoll(int32 Count, int32 Size);
 
-    /**
-     * Check if the dice toolkit is properly loaded and functional
-     */
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    int32 RollGetValue(int32 RollHandle);
+
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    FString RollGetDescription(int32 RollHandle);
+
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    bool RollHasError(int32 RollHandle);
+
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    FString RollGetError(int32 RollHandle);
+
+    // Helper Functions (from dice/modifier.go)
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    int32 D4(int32 Count);
+
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    int32 D6(int32 Count);
+
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    int32 D8(int32 Count);
+
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    int32 D10(int32 Count);
+
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    int32 D12(int32 Count);
+
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    int32 D20(int32 Count);
+
+    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
+    int32 D100(int32 Count);
+
+    // Toolkit Status
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
     bool IsToolkitLoaded() const;
 
-    // Entity-aware dice rolling methods (prepares for event system integration)
-    
-    /**
-     * Roll a die for a specific entity (future: will include entity modifiers)
-     * @param Sides Number of sides on the die
-     * @param Entity The entity performing the roll
-     * @return Roll result
-     */
-    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 RollForEntity(int32 Sides, TScriptInterface<IRPGEntityInterface> Entity);
-
-    /**
-     * Roll with advantage for a specific entity
-     * @param Sides Number of sides on the die
-     * @param Entity The entity performing the roll
-     * @return The higher of two rolls
-     */
-    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 RollWithAdvantageForEntity(int32 Sides, TScriptInterface<IRPGEntityInterface> Entity);
-
-    // Event integration methods
-    
-    /**
-     * Enable or disable event publishing for dice rolls
-     * @param bEnabled Whether to publish events for dice rolls
-     */
-    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    void SetEventPublishingEnabled(bool bEnabled) { bPublishEvents = bEnabled; }
-
-    /**
-     * Check if event publishing is enabled
-     */
-    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    bool IsEventPublishingEnabled() const { return bPublishEvents; }
+    // Legacy Functions (for backward compatibility) - implemented in .cpp as inline mapping
 
 private:
     /** Function pointers to actual toolkit DLL functions */
+    // Roller interface functions
+    typedef void* (*CreateCryptoRollerFunc)();
+    typedef int32 (*RollerRollFunc)(void*, int32);
+    typedef int32 (*RollerRollNFunc)(void*, int32, int32, int32*);
+    typedef void* (*GetDefaultRollerFunc)();
+    typedef void (*SetDefaultRollerFunc)(void*);
+    
+    // Roll struct functions
+    typedef void* (*CreateRollFunc)(int32, int32);
+    typedef void* (*CreateRollWithRollerFunc)(int32, int32, void*);
+    typedef int32 (*RollGetValueFunc)(void*);
+    typedef ANSICHAR* (*RollGetDescriptionFunc)(void*);
+    typedef int32 (*RollHasErrorFunc)(void*);
+    typedef ANSICHAR* (*RollGetErrorFunc)(void*);
+    
+    // Helper functions
+    typedef void* (*D4Func)(int32);
+    typedef void* (*D6Func)(int32);
+    typedef void* (*D8Func)(int32);
+    typedef void* (*D10Func)(int32);
+    typedef void* (*D12Func)(int32);
+    typedef void* (*D20Func)(int32);
+    typedef void* (*D100Func)(int32);
+    
+    // Legacy functions
     typedef void* (*CreateDiceRollerFunc)();
     typedef int32 (*RollDieFunc)(void*, int32);
-    typedef ANSICHAR* (*GetVersionFunc)();
-    typedef int32 (*InitializeFunc)();
-
+    typedef void (*FreeStringFunc)(ANSICHAR*);
+    
+    // Function pointer instances
+    CreateCryptoRollerFunc CreateCryptoRollerFuncPtr;
+    RollerRollFunc RollerRollFuncPtr;
+    RollerRollNFunc RollerRollNFuncPtr;
+    GetDefaultRollerFunc GetDefaultRollerFuncPtr;
+    SetDefaultRollerFunc SetDefaultRollerFuncPtr;
+    
+    CreateRollFunc CreateRollFuncPtr;
+    CreateRollWithRollerFunc CreateRollWithRollerFuncPtr;
+    RollGetValueFunc RollGetValueFuncPtr;
+    RollGetDescriptionFunc RollGetDescriptionFuncPtr;
+    RollHasErrorFunc RollHasErrorFuncPtr;
+    RollGetErrorFunc RollGetErrorFuncPtr;
+    
+    D4Func D4FuncPtr;
+    D6Func D6FuncPtr;
+    D8Func D8FuncPtr;
+    D10Func D10FuncPtr;
+    D12Func D12FuncPtr;
+    D20Func D20FuncPtr;
+    D100Func D100FuncPtr;
+    
     CreateDiceRollerFunc CreateDiceRollerFuncPtr;
     RollDieFunc RollDieFuncPtr;
-    GetVersionFunc GetVersionFuncPtr;
-    InitializeFunc InitializeFuncPtr;
+    FreeStringFunc FreeStringFuncPtr;
 
     /** Whether the DLL functions were successfully loaded */
     bool bFunctionsLoaded;
@@ -119,14 +142,25 @@ private:
 
     /** Dice roller instance from the toolkit */
     void* DiceRollerPtr;
-
-    /** Whether to publish events for dice rolls */
-    bool bPublishEvents = true;
+    
+    /** Roll handle management */
+    TMap<int32, void*> RollHandles;
+    int32 NextRollHandle = 1;
 
     /** Load the DLL and function pointers */
     void LoadDLLFunctions();
-
-    /** Event publishing helpers */
-    void PublishDiceRollEvent(int32 Sides, int32 Result, TScriptInterface<IRPGEntityInterface> Entity = nullptr);
-    URPGEventBusSubsystem* GetEventBusSubsystem() const;
+    
+    /** Handle management helpers */
+    int32 CreateRollHandle(void* RollPtr);
+    void* GetRollPtr(int32 Handle);
+    void ReleaseRollHandle(int32 Handle);
+    
+    /** Helper to convert C string and free memory */
+    FString ConvertAndFreeString(ANSICHAR* CStr) const;
+    
+    /** Shutdown safety check (following existing pattern) */
+    bool IsSafeToCallFunction() const;
+    
+    /** Memory management for Roll objects */
+    void CleanupRollHandles();
 };

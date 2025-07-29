@@ -1,654 +1,759 @@
 #include "RPGEventBusSubsystem.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/Paths.h"
-#include "Engine/World.h"
-#include "TimerManager.h"
 
 void URPGEventBusSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
     Super::Initialize(Collection);
     
-    UE_LOG(LogTemp, Warning, TEXT("URPGEventBusSubsystem: Initializing"));
+    UE_LOG(LogTemp, Warning, TEXT("RPGEventBusSubsystem: Initializing"));
     
-    // Initialize state
-    bToolkitLoaded = false;
+    // Initialize all function pointers to nullptr
+    bFunctionsLoaded = false;
     ToolkitDLLHandle = nullptr;
-    EventStatistics.Reset();
     
-    // Clear collections
-    EventSubscriptions.Empty();
-    FilteredEventTypes.Empty();
-    DeferredEvents.Empty();
+    // Initialize all function pointers
+    CreateEventBusFuncPtr = nullptr;
+    PublishEventFuncPtr = nullptr;
+    SubscribeEventFuncPtr = nullptr;
+    UnsubscribeEventFuncPtr = nullptr;
     
-    // Load DLL functions for event system
-    LoadToolkitDLL();
-    LoadEventDLLFunctions();
+    GetEventBeforeAttackRollFuncPtr = nullptr;
+    GetEventOnAttackRollFuncPtr = nullptr;
+    GetEventAfterAttackRollFuncPtr = nullptr;
+    GetEventBeforeDamageRollFuncPtr = nullptr;
+    GetEventOnTakeDamageFuncPtr = nullptr;
+    GetEventCalculateDamageFuncPtr = nullptr;
+    GetEventAfterDamageFuncPtr = nullptr;
+    GetEventEntityPlacedFuncPtr = nullptr;
+    GetEventEntityMovedFuncPtr = nullptr;
+    GetEventRoomCreatedFuncPtr = nullptr;
+    GetEventTurnStartFuncPtr = nullptr;
+    GetEventTurnEndFuncPtr = nullptr;
+    GetEventRoundStartFuncPtr = nullptr;
+    GetEventRoundEndFuncPtr = nullptr;
+    GetEventStatusAppliedFuncPtr = nullptr;
+    GetEventStatusRemovedFuncPtr = nullptr;
+    GetEventStatusCheckFuncPtr = nullptr;
     
-    if (bToolkitLoaded)
+    GetContextKeyAttackerFuncPtr = nullptr;
+    GetContextKeyTargetFuncPtr = nullptr;
+    GetContextKeyWeaponFuncPtr = nullptr;
+    GetContextKeyDamageTypeFuncPtr = nullptr;
+    GetContextKeyAdvantageFuncPtr = nullptr;
+    GetContextKeyRollFuncPtr = nullptr;
+    GetContextKeyOldPositionFuncPtr = nullptr;
+    GetContextKeyNewPositionFuncPtr = nullptr;
+    GetContextKeyRoomIDFuncPtr = nullptr;
+    
+    CreateModifierFuncPtr = nullptr;
+    CreateIntModifierFuncPtr = nullptr;
+    CreateDiceModifierFuncPtr = nullptr;
+    
+    GetDurationPermanentFuncPtr = nullptr;
+    GetDurationRoundsFuncPtr = nullptr;
+    GetDurationMinutesFuncPtr = nullptr;
+    GetDurationHoursFuncPtr = nullptr;
+    GetDurationEncounterFuncPtr = nullptr;
+    GetDurationConcentrationFuncPtr = nullptr;
+    GetDurationShortRestFuncPtr = nullptr;
+    GetDurationLongRestFuncPtr = nullptr;
+    GetDurationUntilDamagedFuncPtr = nullptr;
+    GetDurationUntilSaveFuncPtr = nullptr;
+    
+    FreeEventStringFuncPtr = nullptr;
+    
+    // Load DLL functions
+    LoadDLLFunctions();
+    
+    if (bFunctionsLoaded)
     {
-        InitializeEventSystem();
-        UE_LOG(LogTemp, Warning, TEXT("URPGEventBusSubsystem: Event system initialized successfully"));
+        UE_LOG(LogTemp, Warning, TEXT("RPGEventBusSubsystem: Successfully initialized"));
+        
+        // Create event bus instance
+        if (CreateEventBusFuncPtr)
+        {
+            FString Result = CreateEventBus();
+            UE_LOG(LogTemp, Warning, TEXT("RPGEventBusSubsystem: EventBus created: %s"), *Result);
+        }
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("URPGEventBusSubsystem: Event system initialized without toolkit integration"));
-    }
-    
-    // Set up periodic cleanup timer (every 30 seconds)
-    if (UWorld* World = GetWorld())
-    {
-        World->GetTimerManager().SetTimer(CleanupTimerHandle, this, 
-            &URPGEventBusSubsystem::PerformPeriodicCleanup, 30.0f, true);
+        UE_LOG(LogTemp, Error, TEXT("RPGEventBusSubsystem: Failed to initialize - DLL functions not loaded"));
     }
 }
 
 void URPGEventBusSubsystem::Deinitialize()
 {
-    UE_LOG(LogTemp, Warning, TEXT("URPGEventBusSubsystem: Deinitializing"));
+    UE_LOG(LogTemp, Warning, TEXT("RPGEventBusSubsystem: Deinitializing"));
     
-    // Clear cleanup timer
-    if (UWorld* World = GetWorld())
-    {
-        World->GetTimerManager().ClearTimer(CleanupTimerHandle);
-    }
-    
-    // Clear all subscriptions
-    FScopeLock Lock(&EventBusLock);
-    EventSubscriptions.Empty();
-    FilteredEventTypes.Empty();
-    DeferredEvents.Empty();
-    
-    // Clear function pointers to prevent shutdown crashes
-    bToolkitLoaded = false;
+    // Clear all function pointers
+    CreateEventBusFuncPtr = nullptr;
     PublishEventFuncPtr = nullptr;
     SubscribeEventFuncPtr = nullptr;
     UnsubscribeEventFuncPtr = nullptr;
-    GetEventDataFuncPtr = nullptr;
-    ToolkitDLLHandle = nullptr;
     
-    // Don't unload DLL - let Windows handle cleanup on process exit
-    // Following same pattern as RPGDiceSubsystem
+    GetEventBeforeAttackRollFuncPtr = nullptr;
+    GetEventOnAttackRollFuncPtr = nullptr;
+    GetEventAfterAttackRollFuncPtr = nullptr;
+    GetEventBeforeDamageRollFuncPtr = nullptr;
+    GetEventOnTakeDamageFuncPtr = nullptr;
+    GetEventCalculateDamageFuncPtr = nullptr;
+    GetEventAfterDamageFuncPtr = nullptr;
+    GetEventEntityPlacedFuncPtr = nullptr;
+    GetEventEntityMovedFuncPtr = nullptr;
+    GetEventRoomCreatedFuncPtr = nullptr;
+    GetEventTurnStartFuncPtr = nullptr;
+    GetEventTurnEndFuncPtr = nullptr;
+    GetEventRoundStartFuncPtr = nullptr;
+    GetEventRoundEndFuncPtr = nullptr;
+    GetEventStatusAppliedFuncPtr = nullptr;
+    GetEventStatusRemovedFuncPtr = nullptr;
+    GetEventStatusCheckFuncPtr = nullptr;
+    
+    GetContextKeyAttackerFuncPtr = nullptr;
+    GetContextKeyTargetFuncPtr = nullptr;
+    GetContextKeyWeaponFuncPtr = nullptr;
+    GetContextKeyDamageTypeFuncPtr = nullptr;
+    GetContextKeyAdvantageFuncPtr = nullptr;
+    GetContextKeyRollFuncPtr = nullptr;
+    GetContextKeyOldPositionFuncPtr = nullptr;
+    GetContextKeyNewPositionFuncPtr = nullptr;
+    GetContextKeyRoomIDFuncPtr = nullptr;
+    
+    CreateModifierFuncPtr = nullptr;
+    CreateIntModifierFuncPtr = nullptr;
+    CreateDiceModifierFuncPtr = nullptr;
+    
+    GetDurationPermanentFuncPtr = nullptr;
+    GetDurationRoundsFuncPtr = nullptr;
+    GetDurationMinutesFuncPtr = nullptr;
+    GetDurationHoursFuncPtr = nullptr;
+    GetDurationEncounterFuncPtr = nullptr;
+    GetDurationConcentrationFuncPtr = nullptr;
+    GetDurationShortRestFuncPtr = nullptr;
+    GetDurationLongRestFuncPtr = nullptr;
+    GetDurationUntilDamagedFuncPtr = nullptr;
+    GetDurationUntilSaveFuncPtr = nullptr;
+    
+    FreeEventStringFuncPtr = nullptr;
+    
+    bFunctionsLoaded = false;
+    ToolkitDLLHandle = nullptr;
     
     Super::Deinitialize();
 }
 
-bool URPGEventBusSubsystem::PublishEvent(const FRPGEventContext& EventContext)
+// EventBus Management Functions Implementation
+FString URPGEventBusSubsystem::CreateEventBus()
 {
-    if (!EventContext.IsValid())
+    if (!IsSafeToCallFunction() || !CreateEventBusFuncPtr)
     {
-        UE_LOG(LogTemp, Warning, TEXT("URPGEventBusSubsystem::PublishEvent: Invalid event context"));
-        return false;
+        return TEXT("ERROR: Function not available");
     }
     
-    // Check if event type is filtered
-    if (IsEventFiltered(EventContext.EventType))
-    {
-        UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::PublishEvent: Event type %s is filtered"), 
-               *RPGEventTypes::EventTypeToString(EventContext.EventType));
-        return false;
-    }
-    
-    double StartTime = FPlatformTime::Seconds();
-    
-    // Process the event
-    ERPGEventResult Result = ProcessEventInternal(EventContext);
-    
-    double ProcessingTime = FPlatformTime::Seconds() - StartTime;
-    
-    // Update statistics
-    UpdateEventStatistics(EventContext.EventType, ProcessingTime, Result);
-    
-    // Broadcast event published
-    OnEventPublished.Broadcast(EventContext);
-    
-    // Sync with toolkit if available
-    if (bToolkitLoaded)
-    {
-        SyncEventWithToolkit(EventContext);
-    }
-    
-    UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::PublishEvent: Published %s event in %.4f seconds"), 
-           *RPGEventTypes::EventTypeToString(EventContext.EventType), ProcessingTime);
-    
-    return Result != ERPGEventResult::Error;
+    ANSICHAR* CStr = CreateEventBusFuncPtr();
+    return ConvertAndFreeString(CStr);
 }
 
-bool URPGEventBusSubsystem::PublishEventDeferred(const FRPGEventContext& EventContext, float DelaySeconds)
+bool URPGEventBusSubsystem::PublishEvent(const FString& EventType, const FString& SourceID, const FString& TargetID, const FString& ContextData)
 {
-    if (!EventContext.IsValid())
+    if (!IsSafeToCallFunction() || !PublishEventFuncPtr)
     {
         return false;
     }
     
-    double ScheduledTime = FApp::GetCurrentTime() + DelaySeconds;
-    
-    FScopeLock Lock(&EventBusLock);
-    DeferredEvents.Add(FDeferredEvent(EventContext, ScheduledTime));
-    
-    UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::PublishEventDeferred: Scheduled %s event for %.2f seconds"), 
-           *RPGEventTypes::EventTypeToString(EventContext.EventType), DelaySeconds);
-    
-    return true;
+    return PublishEventFuncPtr(TCHAR_TO_ANSI(*EventType), TCHAR_TO_ANSI(*SourceID), TCHAR_TO_ANSI(*TargetID), TCHAR_TO_ANSI(*ContextData)) != 0;
 }
 
-bool URPGEventBusSubsystem::PublishEventToEntity(const FRPGEventContext& EventContext, 
-                                               TScriptInterface<IRPGEntityInterface> TargetEntity)
+FString URPGEventBusSubsystem::SubscribeEvent(const FString& EventType, int32 Priority)
 {
-    if (!TargetEntity.GetInterface())
+    if (!IsSafeToCallFunction() || !SubscribeEventFuncPtr)
     {
-        return PublishEvent(EventContext);
+        return TEXT("");
     }
     
-    // Create a modified context with the target entity
-    FRPGEventContext ModifiedContext = EventContext;
-    ModifiedContext.TargetEntity = TargetEntity;
-    
-    return PublishEvent(ModifiedContext);
+    ANSICHAR* CStr = SubscribeEventFuncPtr(TCHAR_TO_ANSI(*EventType), Priority);
+    return ConvertAndFreeString(CStr);
 }
 
-FString URPGEventBusSubsystem::Subscribe(ERPGEventType EventType, TScriptInterface<IRPGEventInterface> Handler, 
-                                        ERPGEventPriority Priority)
+bool URPGEventBusSubsystem::UnsubscribeEvent(const FString& SubscriptionID)
 {
-    if (!Handler.GetInterface())
-    {
-        UE_LOG(LogTemp, Warning, TEXT("URPGEventBusSubsystem::Subscribe: Invalid handler for event type %s"), 
-               *RPGEventTypes::EventTypeToString(EventType));
-        return FString();
-    }
-    
-    FScopeLock Lock(&EventBusLock);
-    
-    // Create subscription
-    FRPGEventSubscription Subscription(Handler, Priority);
-    
-    // Add to subscriptions
-    if (!EventSubscriptions.Contains(EventType))
-    {
-        EventSubscriptions.Add(EventType, TArray<FRPGEventSubscription>());
-    }
-    
-    EventSubscriptions[EventType].Add(Subscription);
-    
-    // Sort by priority (higher priority first)
-    SortSubscriptionsByPriority(EventSubscriptions[EventType]);
-    
-    // Broadcast subscription change
-    OnSubscriptionChanged.Broadcast(EventType, true);
-    
-    UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::Subscribe: Subscribed handler to %s events with priority %d"), 
-           *RPGEventTypes::EventTypeToString(EventType), static_cast<int32>(Priority));
-    
-    return Subscription.SubscriptionID;
-}
-
-bool URPGEventBusSubsystem::Unsubscribe(ERPGEventType EventType, TScriptInterface<IRPGEventInterface> Handler)
-{
-    if (!Handler.GetInterface())
+    if (!IsSafeToCallFunction() || !UnsubscribeEventFuncPtr)
     {
         return false;
     }
     
-    FScopeLock Lock(&EventBusLock);
-    
-    if (!EventSubscriptions.Contains(EventType))
-    {
-        return false;
-    }
-    
-    TArray<FRPGEventSubscription>& Subscriptions = EventSubscriptions[EventType];
-    
-    // Remove subscriptions for this handler
-    int32 RemovedCount = Subscriptions.RemoveAll([Handler](const FRPGEventSubscription& Sub)
-    {
-        return Sub.Handler.GetInterface() == Handler.GetInterface();
-    });
-    
-    if (RemovedCount > 0)
-    {
-        // Broadcast subscription change
-        OnSubscriptionChanged.Broadcast(EventType, false);
-        
-        UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::Unsubscribe: Removed %d subscriptions for %s events"), 
-               RemovedCount, *RPGEventTypes::EventTypeToString(EventType));
-        
-        return true;
-    }
-    
-    return false;
+    return UnsubscribeEventFuncPtr(TCHAR_TO_ANSI(*SubscriptionID)) != 0;
 }
 
-bool URPGEventBusSubsystem::UnsubscribeByID(const FString& SubscriptionID)
+// Event Type Constants Implementation
+FString URPGEventBusSubsystem::GetEventBeforeAttackRoll() const
 {
-    if (SubscriptionID.IsEmpty())
+    if (!IsSafeToCallFunction() || !GetEventBeforeAttackRollFuncPtr)
     {
-        return false;
+        return TEXT("before_attack_roll");
     }
     
-    FScopeLock Lock(&EventBusLock);
-    
-    // Search through all event types
-    for (auto& Pair : EventSubscriptions)
-    {
-        TArray<FRPGEventSubscription>& Subscriptions = Pair.Value;
-        
-        int32 RemovedCount = Subscriptions.RemoveAll([SubscriptionID](const FRPGEventSubscription& Sub)
-        {
-            return Sub.SubscriptionID == SubscriptionID;
-        });
-        
-        if (RemovedCount > 0)
-        {
-            OnSubscriptionChanged.Broadcast(Pair.Key, false);
-            return true;
-        }
-    }
-    
-    return false;
+    ANSICHAR* CStr = GetEventBeforeAttackRollFuncPtr();
+    return ConvertAndFreeString(CStr);
 }
 
-void URPGEventBusSubsystem::UnsubscribeAll(TScriptInterface<IRPGEventInterface> Handler)
+FString URPGEventBusSubsystem::GetEventOnAttackRoll() const
 {
-    if (!Handler.GetInterface())
+    if (!IsSafeToCallFunction() || !GetEventOnAttackRollFuncPtr)
     {
-        return;
+        return TEXT("on_attack_roll");
     }
     
-    FScopeLock Lock(&EventBusLock);
-    
-    // Remove from all event types
-    for (auto& Pair : EventSubscriptions)
-    {
-        TArray<FRPGEventSubscription>& Subscriptions = Pair.Value;
-        
-        int32 RemovedCount = Subscriptions.RemoveAll([Handler](const FRPGEventSubscription& Sub)
-        {
-            return Sub.Handler.GetInterface() == Handler.GetInterface();
-        });
-        
-        if (RemovedCount > 0)
-        {
-            OnSubscriptionChanged.Broadcast(Pair.Key, false);
-        }
-    }
-    
-    UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::UnsubscribeAll: Removed all subscriptions for handler"));
+    ANSICHAR* CStr = GetEventOnAttackRollFuncPtr();
+    return ConvertAndFreeString(CStr);
 }
 
-int32 URPGEventBusSubsystem::GetSubscriptionCount(ERPGEventType EventType) const
+FString URPGEventBusSubsystem::GetEventAfterAttackRoll() const
 {
-    FScopeLock Lock(&EventBusLock);
-    
-    if (const TArray<FRPGEventSubscription>* Subscriptions = EventSubscriptions.Find(EventType))
+    if (!IsSafeToCallFunction() || !GetEventAfterAttackRollFuncPtr)
     {
-        return Subscriptions->Num();
+        return TEXT("after_attack_roll");
     }
     
-    return 0;
+    ANSICHAR* CStr = GetEventAfterAttackRollFuncPtr();
+    return ConvertAndFreeString(CStr);
 }
 
-bool URPGEventBusSubsystem::IsSubscribed(ERPGEventType EventType, TScriptInterface<IRPGEventInterface> Handler) const
+FString URPGEventBusSubsystem::GetEventBeforeDamageRoll() const
 {
-    if (!Handler.GetInterface())
+    if (!IsSafeToCallFunction() || !GetEventBeforeDamageRollFuncPtr)
     {
-        return false;
+        return TEXT("before_damage_roll");
     }
     
-    FScopeLock Lock(&EventBusLock);
-    
-    if (const TArray<FRPGEventSubscription>* Subscriptions = EventSubscriptions.Find(EventType))
-    {
-        for (const FRPGEventSubscription& Sub : *Subscriptions)
-        {
-            if (Sub.Handler.GetInterface() == Handler.GetInterface())
-            {
-                return true;
-            }
-        }
-    }
-    
-    return false;
+    ANSICHAR* CStr = GetEventBeforeDamageRollFuncPtr();
+    return ConvertAndFreeString(CStr);
 }
 
-ERPGEventResult URPGEventBusSubsystem::ProcessEventInternal(const FRPGEventContext& EventContext)
+FString URPGEventBusSubsystem::GetEventOnTakeDamage() const
 {
-    FScopeLock Lock(&EventBusLock);
-    
-    // Get subscriptions for this event type
-    const TArray<FRPGEventSubscription>* Subscriptions = EventSubscriptions.Find(EventContext.EventType);
-    
-    if (!Subscriptions || Subscriptions->Num() == 0)
+    if (!IsSafeToCallFunction() || !GetEventOnTakeDamageFuncPtr)
     {
-        UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::ProcessEventInternal: No handlers for event type %s"), 
-               *RPGEventTypes::EventTypeToString(EventContext.EventType));
-        return ERPGEventResult::Unhandled;
+        return TEXT("on_take_damage");
     }
     
-    // Process handlers
-    NotifyHandlers(EventContext, *Subscriptions);
-    
-    return ERPGEventResult::Handled;
+    ANSICHAR* CStr = GetEventOnTakeDamageFuncPtr();
+    return ConvertAndFreeString(CStr);
 }
 
-void URPGEventBusSubsystem::NotifyHandlers(const FRPGEventContext& EventContext, 
-                                         const TArray<FRPGEventSubscription>& Handlers)
+FString URPGEventBusSubsystem::GetEventCalculateDamage() const
 {
-    FRPGEventContext MutableContext = EventContext;
-    
-    for (const FRPGEventSubscription& Subscription : Handlers)
+    if (!IsSafeToCallFunction() || !GetEventCalculateDamageFuncPtr)
     {
-        if (!Subscription.IsValid() || Subscription.IsExpired())
-        {
-            continue;
-        }
-        
-        if (MutableContext.bCancelled)
-        {
-            UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::NotifyHandlers: Event cancelled, stopping processing"));
-            break;
-        }
-        
-        ERPGEventResult Result = ERPGEventResult::Unhandled;
-        
-        // Call the handler
-        if (Subscription.Handler.GetInterface())
-        {
-            Result = Subscription.Handler->HandleEvent(MutableContext);
-        }
-        
-        // Broadcast that event was handled
-        OnEventHandled.Broadcast(MutableContext, Result);
-        
-        // Stop processing if handler requests it
-        if (Result == ERPGEventResult::HandledStopProcessing)
-        {
-            UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::NotifyHandlers: Handler requested to stop processing"));
-            break;
-        }
-        
-        // Mark as handled if a handler processed it
-        if (Result == ERPGEventResult::Handled || Result == ERPGEventResult::HandledStopProcessing)
-        {
-            MutableContext.bHandled = true;
-        }
+        return TEXT("calculate_damage");
     }
+    
+    ANSICHAR* CStr = GetEventCalculateDamageFuncPtr();
+    return ConvertAndFreeString(CStr);
 }
 
-void URPGEventBusSubsystem::ProcessDeferredEvents()
+FString URPGEventBusSubsystem::GetEventAfterDamage() const
 {
-    FScopeLock Lock(&EventBusLock);
-    
-    double CurrentTime = FApp::GetCurrentTime();
-    TArray<FDeferredEvent> EventsToProcess;
-    
-    // Find events ready to process
-    for (int32 i = DeferredEvents.Num() - 1; i >= 0; i--)
+    if (!IsSafeToCallFunction() || !GetEventAfterDamageFuncPtr)
     {
-        const FDeferredEvent& DeferredEvent = DeferredEvents[i];
-        
-        if (CurrentTime >= DeferredEvent.ScheduledTime)
-        {
-            EventsToProcess.Add(DeferredEvent);
-            DeferredEvents.RemoveAt(i);
-        }
+        return TEXT("after_damage");
     }
     
-    // Process events (unlock while processing)
-    EventBusLock.Unlock();
-    
-    for (const FDeferredEvent& Event : EventsToProcess)
-    {
-        PublishEvent(Event.EventContext);
-    }
-    
-    EventBusLock.Lock();
-    
-    if (EventsToProcess.Num() > 0)
-    {
-        UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::ProcessDeferredEvents: Processed %d deferred events"), 
-               EventsToProcess.Num());
-    }
+    ANSICHAR* CStr = GetEventAfterDamageFuncPtr();
+    return ConvertAndFreeString(CStr);
 }
 
-void URPGEventBusSubsystem::LoadToolkitDLL()
+FString URPGEventBusSubsystem::GetEventEntityPlaced() const
 {
-    // Use same DLL loading pattern as RPGDiceSubsystem
-    // Construct the path to our DLL in the proper binary directory
+    if (!IsSafeToCallFunction() || !GetEventEntityPlacedFuncPtr)
+    {
+        return TEXT("spatial.entity.placed");
+    }
+    
+    ANSICHAR* CStr = GetEventEntityPlacedFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetEventEntityMoved() const
+{
+    if (!IsSafeToCallFunction() || !GetEventEntityMovedFuncPtr)
+    {
+        return TEXT("spatial.entity.moved");
+    }
+    
+    ANSICHAR* CStr = GetEventEntityMovedFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetEventRoomCreated() const
+{
+    if (!IsSafeToCallFunction() || !GetEventRoomCreatedFuncPtr)
+    {
+        return TEXT("spatial.room.created");
+    }
+    
+    ANSICHAR* CStr = GetEventRoomCreatedFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetEventTurnStart() const
+{
+    if (!IsSafeToCallFunction() || !GetEventTurnStartFuncPtr)
+    {
+        return TEXT("turn_start");
+    }
+    
+    ANSICHAR* CStr = GetEventTurnStartFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetEventTurnEnd() const
+{
+    if (!IsSafeToCallFunction() || !GetEventTurnEndFuncPtr)
+    {
+        return TEXT("turn_end");
+    }
+    
+    ANSICHAR* CStr = GetEventTurnEndFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetEventRoundStart() const
+{
+    if (!IsSafeToCallFunction() || !GetEventRoundStartFuncPtr)
+    {
+        return TEXT("round_start");
+    }
+    
+    ANSICHAR* CStr = GetEventRoundStartFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetEventRoundEnd() const
+{
+    if (!IsSafeToCallFunction() || !GetEventRoundEndFuncPtr)
+    {
+        return TEXT("round_end");
+    }
+    
+    ANSICHAR* CStr = GetEventRoundEndFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetEventStatusApplied() const
+{
+    if (!IsSafeToCallFunction() || !GetEventStatusAppliedFuncPtr)
+    {
+        return TEXT("status_applied");
+    }
+    
+    ANSICHAR* CStr = GetEventStatusAppliedFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetEventStatusRemoved() const
+{
+    if (!IsSafeToCallFunction() || !GetEventStatusRemovedFuncPtr)
+    {
+        return TEXT("status_removed");
+    }
+    
+    ANSICHAR* CStr = GetEventStatusRemovedFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetEventStatusCheck() const
+{
+    if (!IsSafeToCallFunction() || !GetEventStatusCheckFuncPtr)
+    {
+        return TEXT("status_check");
+    }
+    
+    ANSICHAR* CStr = GetEventStatusCheckFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+// Context Key Constants Implementation
+FString URPGEventBusSubsystem::GetContextKeyAttacker() const
+{
+    if (!IsSafeToCallFunction() || !GetContextKeyAttackerFuncPtr)
+    {
+        return TEXT("attacker");
+    }
+    
+    ANSICHAR* CStr = GetContextKeyAttackerFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetContextKeyTarget() const
+{
+    if (!IsSafeToCallFunction() || !GetContextKeyTargetFuncPtr)
+    {
+        return TEXT("target");
+    }
+    
+    ANSICHAR* CStr = GetContextKeyTargetFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetContextKeyWeapon() const
+{
+    if (!IsSafeToCallFunction() || !GetContextKeyWeaponFuncPtr)
+    {
+        return TEXT("weapon");
+    }
+    
+    ANSICHAR* CStr = GetContextKeyWeaponFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetContextKeyDamageType() const
+{
+    if (!IsSafeToCallFunction() || !GetContextKeyDamageTypeFuncPtr)
+    {
+        return TEXT("damage_type");
+    }
+    
+    ANSICHAR* CStr = GetContextKeyDamageTypeFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetContextKeyAdvantage() const
+{
+    if (!IsSafeToCallFunction() || !GetContextKeyAdvantageFuncPtr)
+    {
+        return TEXT("advantage");
+    }
+    
+    ANSICHAR* CStr = GetContextKeyAdvantageFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetContextKeyRoll() const
+{
+    if (!IsSafeToCallFunction() || !GetContextKeyRollFuncPtr)
+    {
+        return TEXT("roll");
+    }
+    
+    ANSICHAR* CStr = GetContextKeyRollFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetContextKeyOldPosition() const
+{
+    if (!IsSafeToCallFunction() || !GetContextKeyOldPositionFuncPtr)
+    {
+        return TEXT("old_position");
+    }
+    
+    ANSICHAR* CStr = GetContextKeyOldPositionFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetContextKeyNewPosition() const
+{
+    if (!IsSafeToCallFunction() || !GetContextKeyNewPositionFuncPtr)
+    {
+        return TEXT("new_position");
+    }
+    
+    ANSICHAR* CStr = GetContextKeyNewPositionFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetContextKeyRoomID() const
+{
+    if (!IsSafeToCallFunction() || !GetContextKeyRoomIDFuncPtr)
+    {
+        return TEXT("room_id");
+    }
+    
+    ANSICHAR* CStr = GetContextKeyRoomIDFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+// Modifier Creation Functions Implementation
+FString URPGEventBusSubsystem::CreateModifier(const FString& Source, const FString& ModifierType, int32 Value, int32 Priority)
+{
+    if (!IsSafeToCallFunction() || !CreateModifierFuncPtr)
+    {
+        return TEXT("ERROR: Function not available");
+    }
+    
+    ANSICHAR* CStr = CreateModifierFuncPtr(TCHAR_TO_ANSI(*Source), TCHAR_TO_ANSI(*ModifierType), Value, Priority);
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::CreateIntModifier(const FString& Source, const FString& ModifierType, int32 Value)
+{
+    if (!IsSafeToCallFunction() || !CreateIntModifierFuncPtr)
+    {
+        return TEXT("ERROR: Function not available");
+    }
+    
+    ANSICHAR* CStr = CreateIntModifierFuncPtr(TCHAR_TO_ANSI(*Source), TCHAR_TO_ANSI(*ModifierType), Value);
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::CreateDiceModifier(const FString& Source, const FString& ModifierType, const FString& DiceExpression)
+{
+    if (!IsSafeToCallFunction() || !CreateDiceModifierFuncPtr)
+    {
+        return TEXT("ERROR: Function not available");
+    }
+    
+    ANSICHAR* CStr = CreateDiceModifierFuncPtr(TCHAR_TO_ANSI(*Source), TCHAR_TO_ANSI(*ModifierType), TCHAR_TO_ANSI(*DiceExpression));
+    return ConvertAndFreeString(CStr);
+}
+
+// Duration Constants Implementation
+FString URPGEventBusSubsystem::GetDurationPermanent() const
+{
+    if (!IsSafeToCallFunction() || !GetDurationPermanentFuncPtr)
+    {
+        return TEXT("permanent");
+    }
+    
+    ANSICHAR* CStr = GetDurationPermanentFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetDurationRounds() const
+{
+    if (!IsSafeToCallFunction() || !GetDurationRoundsFuncPtr)
+    {
+        return TEXT("rounds");
+    }
+    
+    ANSICHAR* CStr = GetDurationRoundsFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetDurationMinutes() const
+{
+    if (!IsSafeToCallFunction() || !GetDurationMinutesFuncPtr)
+    {
+        return TEXT("minutes");
+    }
+    
+    ANSICHAR* CStr = GetDurationMinutesFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetDurationHours() const
+{
+    if (!IsSafeToCallFunction() || !GetDurationHoursFuncPtr)
+    {
+        return TEXT("hours");
+    }
+    
+    ANSICHAR* CStr = GetDurationHoursFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetDurationEncounter() const
+{
+    if (!IsSafeToCallFunction() || !GetDurationEncounterFuncPtr)
+    {
+        return TEXT("encounter");
+    }
+    
+    ANSICHAR* CStr = GetDurationEncounterFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetDurationConcentration() const
+{
+    if (!IsSafeToCallFunction() || !GetDurationConcentrationFuncPtr)
+    {
+        return TEXT("concentration");
+    }
+    
+    ANSICHAR* CStr = GetDurationConcentrationFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetDurationShortRest() const
+{
+    if (!IsSafeToCallFunction() || !GetDurationShortRestFuncPtr)
+    {
+        return TEXT("short_rest");
+    }
+    
+    ANSICHAR* CStr = GetDurationShortRestFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetDurationLongRest() const
+{
+    if (!IsSafeToCallFunction() || !GetDurationLongRestFuncPtr)
+    {
+        return TEXT("long_rest");
+    }
+    
+    ANSICHAR* CStr = GetDurationLongRestFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetDurationUntilDamaged() const
+{
+    if (!IsSafeToCallFunction() || !GetDurationUntilDamagedFuncPtr)
+    {
+        return TEXT("until_damaged");
+    }
+    
+    ANSICHAR* CStr = GetDurationUntilDamagedFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+FString URPGEventBusSubsystem::GetDurationUntilSave() const
+{
+    if (!IsSafeToCallFunction() || !GetDurationUntilSaveFuncPtr)
+    {
+        return TEXT("until_save");
+    }
+    
+    ANSICHAR* CStr = GetDurationUntilSaveFuncPtr();
+    return ConvertAndFreeString(CStr);
+}
+
+// Toolkit Status
+bool URPGEventBusSubsystem::IsToolkitLoaded() const
+{
+    return bFunctionsLoaded;
+}
+
+// Private Implementation
+void URPGEventBusSubsystem::LoadDLLFunctions()
+{
+    // Use proper UE binary directory (following established pattern)
     FString BinariesDir = FPaths::Combine(FPaths::ProjectDir(), TEXT("Binaries"), FPlatformProcess::GetBinariesSubdirectory());
     FString LibraryPath = FPaths::Combine(BinariesDir, TEXT("rpg_toolkit.dll"));
     LibraryPath = FPaths::ConvertRelativePathToFull(LibraryPath);
 
+    UE_LOG(LogTemp, Warning, TEXT("RPGEventBusSubsystem: Attempting to load DLL from: %s"), *LibraryPath);
+
+    // Check if the DLL exists
     if (!FPaths::FileExists(LibraryPath))
     {
-        UE_LOG(LogTemp, Warning, TEXT("URPGEventBusSubsystem: Toolkit DLL not found, event system will work without toolkit integration"));
+        UE_LOG(LogTemp, Error, TEXT("RPGEventBusSubsystem: DLL not found at path: %s"), *LibraryPath);
         return;
     }
 
+    // Load the DLL
     ToolkitDLLHandle = FPlatformProcess::GetDllHandle(*LibraryPath);
-    if (ToolkitDLLHandle)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("URPGEventBusSubsystem: Toolkit DLL loaded successfully"));
-    }
-}
-
-void URPGEventBusSubsystem::LoadEventDLLFunctions()
-{
     if (!ToolkitDLLHandle)
     {
+        UE_LOG(LogTemp, Error, TEXT("RPGEventBusSubsystem: Failed to load DLL"));
         return;
     }
-    
-    // For now, we'll use placeholder function loading since event bindings don't exist yet
-    // In the future, this will load actual event-specific functions from the DLL
-    
-    bToolkitLoaded = false; // Set to true when actual event functions are available
-    
-    UE_LOG(LogTemp, Warning, TEXT("URPGEventBusSubsystem: Event DLL functions not yet implemented in toolkit"));
-}
 
-bool URPGEventBusSubsystem::InitializeEventSystem()
-{
-    // Initialize event system state
-    EventStatistics.Reset();
+    UE_LOG(LogTemp, Warning, TEXT("RPGEventBusSubsystem: Successfully loaded DLL"));
     
-    UE_LOG(LogTemp, Warning, TEXT("URPGEventBusSubsystem: Event system initialized"));
-    return true;
-}
-
-void URPGEventBusSubsystem::UpdateEventStatistics(ERPGEventType EventType, float ProcessingTime, ERPGEventResult Result)
-{
-    EventStatistics.TotalEventsPublished++;
+    // Load EventBus management functions
+    CreateEventBusFuncPtr = (CreateEventBusFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("CreateEventBus"));
+    PublishEventFuncPtr = (PublishEventFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("PublishEvent"));
+    SubscribeEventFuncPtr = (SubscribeEventFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("SubscribeEvent"));
+    UnsubscribeEventFuncPtr = (UnsubscribeEventFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("UnsubscribeEvent"));
     
-    if (Result == ERPGEventResult::Handled || Result == ERPGEventResult::HandledStopProcessing)
+    // Load Event type constant functions
+    GetEventBeforeAttackRollFuncPtr = (GetEventBeforeAttackRollFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventBeforeAttackRoll"));
+    GetEventOnAttackRollFuncPtr = (GetEventOnAttackRollFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventOnAttackRoll"));
+    GetEventAfterAttackRollFuncPtr = (GetEventAfterAttackRollFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventAfterAttackRoll"));
+    GetEventBeforeDamageRollFuncPtr = (GetEventBeforeDamageRollFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventBeforeDamageRoll"));
+    GetEventOnTakeDamageFuncPtr = (GetEventOnTakeDamageFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventOnTakeDamage"));
+    GetEventCalculateDamageFuncPtr = (GetEventCalculateDamageFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventCalculateDamage"));
+    GetEventAfterDamageFuncPtr = (GetEventAfterDamageFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventAfterDamage"));
+    GetEventEntityPlacedFuncPtr = (GetEventEntityPlacedFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventEntityPlaced"));
+    GetEventEntityMovedFuncPtr = (GetEventEntityMovedFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventEntityMoved"));
+    GetEventRoomCreatedFuncPtr = (GetEventRoomCreatedFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventRoomCreated"));
+    GetEventTurnStartFuncPtr = (GetEventTurnStartFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventTurnStart"));
+    GetEventTurnEndFuncPtr = (GetEventTurnEndFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventTurnEnd"));
+    GetEventRoundStartFuncPtr = (GetEventRoundStartFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventRoundStart"));
+    GetEventRoundEndFuncPtr = (GetEventRoundEndFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventRoundEnd"));
+    GetEventStatusAppliedFuncPtr = (GetEventStatusAppliedFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventStatusApplied"));
+    GetEventStatusRemovedFuncPtr = (GetEventStatusRemovedFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventStatusRemoved"));
+    GetEventStatusCheckFuncPtr = (GetEventStatusCheckFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetEventStatusCheck"));
+    
+    // Load Context key constant functions
+    GetContextKeyAttackerFuncPtr = (GetContextKeyAttackerFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetContextKeyAttacker"));
+    GetContextKeyTargetFuncPtr = (GetContextKeyTargetFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetContextKeyTarget"));
+    GetContextKeyWeaponFuncPtr = (GetContextKeyWeaponFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetContextKeyWeapon"));
+    GetContextKeyDamageTypeFuncPtr = (GetContextKeyDamageTypeFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetContextKeyDamageType"));
+    GetContextKeyAdvantageFuncPtr = (GetContextKeyAdvantageFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetContextKeyAdvantage"));
+    GetContextKeyRollFuncPtr = (GetContextKeyRollFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetContextKeyRoll"));
+    GetContextKeyOldPositionFuncPtr = (GetContextKeyOldPositionFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetContextKeyOldPosition"));
+    GetContextKeyNewPositionFuncPtr = (GetContextKeyNewPositionFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetContextKeyNewPosition"));
+    GetContextKeyRoomIDFuncPtr = (GetContextKeyRoomIDFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetContextKeyRoomID"));
+    
+    // Load Modifier creation functions
+    CreateModifierFuncPtr = (CreateModifierFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("CreateModifier"));
+    CreateIntModifierFuncPtr = (CreateIntModifierFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("CreateIntModifier"));
+    CreateDiceModifierFuncPtr = (CreateDiceModifierFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("CreateDiceModifier"));
+    
+    // Load Duration constant functions
+    GetDurationPermanentFuncPtr = (GetDurationPermanentFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetDurationPermanent"));
+    GetDurationRoundsFuncPtr = (GetDurationRoundsFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetDurationRounds"));
+    GetDurationMinutesFuncPtr = (GetDurationMinutesFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetDurationMinutes"));
+    GetDurationHoursFuncPtr = (GetDurationHoursFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetDurationHours"));
+    GetDurationEncounterFuncPtr = (GetDurationEncounterFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetDurationEncounter"));
+    GetDurationConcentrationFuncPtr = (GetDurationConcentrationFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetDurationConcentration"));
+    GetDurationShortRestFuncPtr = (GetDurationShortRestFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetDurationShortRest"));
+    GetDurationLongRestFuncPtr = (GetDurationLongRestFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetDurationLongRest"));
+    GetDurationUntilDamagedFuncPtr = (GetDurationUntilDamagedFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetDurationUntilDamaged"));
+    GetDurationUntilSaveFuncPtr = (GetDurationUntilSaveFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("GetDurationUntilSave"));
+    
+    // Load memory management function
+    FreeEventStringFuncPtr = (FreeEventStringFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("FreeEventString"));
+    
+    // Check if critical functions were loaded
+    bool bCriticalFunctionsLoaded = (CreateEventBusFuncPtr != nullptr) && 
+                                   (PublishEventFuncPtr != nullptr) && 
+                                   (FreeEventStringFuncPtr != nullptr);
+    
+    if (bCriticalFunctionsLoaded)
     {
-        EventStatistics.TotalEventsHandled++;
-    }
-    
-    // Update per-type statistics
-    int32& TypeCount = EventStatistics.EventTypeCounts.FindOrAdd(EventType, 0);
-    TypeCount++;
-    
-    float& AvgTime = EventStatistics.EventProcessingTimes.FindOrAdd(EventType, 0.0f);
-    AvgTime = (AvgTime * (TypeCount - 1) + ProcessingTime) / TypeCount;
-}
-
-void URPGEventBusSubsystem::PerformPeriodicCleanup()
-{
-    FScopeLock Lock(&EventBusLock);
-    CleanupExpiredSubscriptions();
-}
-
-void URPGEventBusSubsystem::CleanupExpiredSubscriptions()
-{
-    for (auto& Pair : EventSubscriptions)
-    {
-        TArray<FRPGEventSubscription>& Subscriptions = Pair.Value;
+        bFunctionsLoaded = true;
+        UE_LOG(LogTemp, Warning, TEXT("RPGEventBusSubsystem: All critical event functions loaded successfully"));
         
-        int32 RemovedCount = Subscriptions.RemoveAll([](const FRPGEventSubscription& Sub)
-        {
-            return !Sub.IsValid() || Sub.IsExpired();
-        });
-        
-        if (RemovedCount > 0)
-        {
-            UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::CleanupExpiredSubscriptions: Removed %d expired subscriptions for %s"), 
-                   RemovedCount, *RPGEventTypes::EventTypeToString(Pair.Key));
-        }
-    }
-}
-
-void URPGEventBusSubsystem::SortSubscriptionsByPriority(TArray<FRPGEventSubscription>& Subscriptions)
-{
-    Subscriptions.Sort([](const FRPGEventSubscription& A, const FRPGEventSubscription& B)
-    {
-        return static_cast<uint8>(A.Priority) > static_cast<uint8>(B.Priority);
-    });
-}
-
-bool URPGEventBusSubsystem::SyncEventWithToolkit(const FRPGEventContext& EventContext)
-{
-    // Placeholder for toolkit synchronization
-    // Will be implemented when toolkit event bindings are available
-    return true;
-}
-
-void URPGEventBusSubsystem::SetEventFilter(ERPGEventType EventType, bool bAllowEvent)
-{
-    FScopeLock Lock(&EventBusLock);
-    
-    if (bAllowEvent)
-    {
-        FilteredEventTypes.Remove(EventType);
-        UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::SetEventFilter: Removed filter for %s events"), 
-               *RPGEventTypes::EventTypeToString(EventType));
+        // Log status of all functions
+        UE_LOG(LogTemp, Log, TEXT("=== Event Function Loading Status ==="));
+        UE_LOG(LogTemp, Log, TEXT("EventBus Functions:"));
+        UE_LOG(LogTemp, Log, TEXT("  CreateEventBus: %s"), CreateEventBusFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Log, TEXT("  PublishEvent: %s"), PublishEventFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Log, TEXT("  SubscribeEvent: %s"), SubscribeEventFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Log, TEXT("  UnsubscribeEvent: %s"), UnsubscribeEventFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Log, TEXT("================================"));
     }
     else
     {
-        FilteredEventTypes.Add(EventType);
-        UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::SetEventFilter: Added filter for %s events"), 
-               *RPGEventTypes::EventTypeToString(EventType));
+        UE_LOG(LogTemp, Error, TEXT("RPGEventBusSubsystem: Failed to load critical event functions"));
     }
 }
 
-bool URPGEventBusSubsystem::IsEventFiltered(ERPGEventType EventType) const
+FString URPGEventBusSubsystem::ConvertAndFreeString(ANSICHAR* CStr) const
 {
-    FScopeLock Lock(&EventBusLock);
-    return FilteredEventTypes.Contains(EventType);
-}
-
-void URPGEventBusSubsystem::ClearEventFilters()
-{
-    FScopeLock Lock(&EventBusLock);
-    FilteredEventTypes.Empty();
-    UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::ClearEventFilters: Cleared all event filters"));
-}
-
-int32 URPGEventBusSubsystem::GetEventTypeCount(ERPGEventType EventType) const
-{
-    if (const int32* Count = EventStatistics.EventTypeCounts.Find(EventType))
+    if (!CStr)
     {
-        return *Count;
+        return FString();
     }
-    return 0;
+    
+    FString Result = FString(ANSI_TO_TCHAR(CStr));
+    
+    // Free the C string memory
+    if (FreeEventStringFuncPtr)
+    {
+        FreeEventStringFuncPtr(CStr);
+    }
+    
+    return Result;
 }
 
-float URPGEventBusSubsystem::GetEventProcessingTime(ERPGEventType EventType) const
+bool URPGEventBusSubsystem::IsSafeToCallFunction() const
 {
-    if (const float* Time = EventStatistics.EventProcessingTimes.Find(EventType))
-    {
-        return *Time;
-    }
-    return 0.0f;
-}
-
-TArray<FString> URPGEventBusSubsystem::GetSubscriptionIDs(ERPGEventType EventType) const
-{
-    TArray<FString> SubscriptionIDs;
-    
-    FScopeLock Lock(&EventBusLock);
-    
-    if (const TArray<FRPGEventSubscription>* Subscriptions = EventSubscriptions.Find(EventType))
-    {
-        for (const FRPGEventSubscription& Sub : *Subscriptions)
-        {
-            SubscriptionIDs.Add(Sub.SubscriptionID);
-        }
-    }
-    
-    return SubscriptionIDs;
-}
-
-void URPGEventBusSubsystem::ClearEventQueue()
-{
-    FScopeLock Lock(&EventBusLock);
-    DeferredEvents.Empty();
-    UE_LOG(LogTemp, VeryVerbose, TEXT("URPGEventBusSubsystem::ClearEventQueue: Cleared event queue"));
-}
-
-void URPGEventBusSubsystem::DumpEventStatistics() const
-{
-    UE_LOG(LogTemp, Warning, TEXT("=== RPG Event Bus Statistics ==="));
-    UE_LOG(LogTemp, Warning, TEXT("Total Events Published: %d"), EventStatistics.TotalEventsPublished);
-    UE_LOG(LogTemp, Warning, TEXT("Total Events Handled: %d"), EventStatistics.TotalEventsHandled);
-    UE_LOG(LogTemp, Warning, TEXT("Total Events Cancelled: %d"), EventStatistics.TotalEventsCancelled);
-    UE_LOG(LogTemp, Warning, TEXT("Queued Events: %d"), DeferredEvents.Num());
-    
-    UE_LOG(LogTemp, Warning, TEXT("Event Type Breakdown:"));
-    for (const auto& Pair : EventStatistics.EventTypeCounts)
-    {
-        FString EventTypeName = RPGEventTypes::EventTypeToString(Pair.Key);
-        float AvgTime = EventStatistics.EventProcessingTimes.FindRef(Pair.Key);
-        UE_LOG(LogTemp, Warning, TEXT("  %s: %d events (avg: %.4f ms)"), 
-               *EventTypeName, Pair.Value, AvgTime * 1000.0f);
-    }
-    
-    UE_LOG(LogTemp, Warning, TEXT("Subscription Counts:"));
-    for (const auto& Pair : EventSubscriptions)
-    {
-        FString EventTypeName = RPGEventTypes::EventTypeToString(Pair.Key);
-        UE_LOG(LogTemp, Warning, TEXT("  %s: %d subscriptions"), *EventTypeName, Pair.Value.Num());
-    }
-    
-    UE_LOG(LogTemp, Warning, TEXT("Filtered Event Types: %d"), FilteredEventTypes.Num());
-    for (ERPGEventType FilteredType : FilteredEventTypes)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("  %s (filtered)"), *RPGEventTypes::EventTypeToString(FilteredType));
-    }
-    
-    UE_LOG(LogTemp, Warning, TEXT("==============================="));
-}
-
-void URPGEventBusSubsystem::DumpSubscriptions() const
-{
-    FScopeLock Lock(&EventBusLock);
-    
-    UE_LOG(LogTemp, Warning, TEXT("=== RPG Event Bus Subscriptions ==="));
-    
-    for (const auto& Pair : EventSubscriptions)
-    {
-        FString EventTypeName = RPGEventTypes::EventTypeToString(Pair.Key);
-        const TArray<FRPGEventSubscription>& Subscriptions = Pair.Value;
-        
-        UE_LOG(LogTemp, Warning, TEXT("%s (%d subscriptions):"), *EventTypeName, Subscriptions.Num());
-        
-        for (int32 i = 0; i < Subscriptions.Num(); i++)
-        {
-            const FRPGEventSubscription& Sub = Subscriptions[i];
-            FString Status = Sub.IsValid() ? TEXT("Active") : TEXT("Invalid");
-            if (Sub.IsExpired())
-            {
-                Status = TEXT("Expired");
-            }
-            
-            UE_LOG(LogTemp, Warning, TEXT("  [%d] ID:%s Priority:%d Status:%s"), 
-                   i, *Sub.SubscriptionID, static_cast<int32>(Sub.Priority), *Status);
-        }
-    }
-    
-    UE_LOG(LogTemp, Warning, TEXT("==================================="));
-}
-
-void URPGEventBusSubsystem::ResetEventStatistics()
-{
-    EventStatistics.Reset();
-    UE_LOG(LogTemp, Warning, TEXT("URPGEventBusSubsystem::ResetEventStatistics: Event statistics reset"));
+    // Following established pattern for shutdown safety
+    return bFunctionsLoaded && ToolkitDLLHandle != nullptr;
 }

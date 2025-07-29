@@ -2,75 +2,14 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
-#include "RPGEventTypes.h"
-#include "RPGEventContext.h"
-#include "RPGEvent.h"
-#include "../Entity/RPGEntity.h"
+#include "HAL/PlatformProcess.h"
 #include "RPGEventBusSubsystem.generated.h"
 
-// Forward declarations
-class IRPGEventInterface;
-
 /**
- * Delegates for event bus lifecycle events
- */
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRPGEventPublished, const FRPGEventContext&, EventContext);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnRPGEventHandled, const FRPGEventContext&, EventContext, ERPGEventResult, Result);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnRPGEventSubscription, ERPGEventType, EventType, bool, bSubscribed);
-
-/**
- * Deferred event structure for delayed event processing
- */
-USTRUCT()
-struct FDeferredEvent
-{
-    GENERATED_BODY()
-
-    FRPGEventContext EventContext;
-    double ScheduledTime;
-
-    FDeferredEvent()
-        : ScheduledTime(0.0)
-    {
-    }
-
-    FDeferredEvent(const FRPGEventContext& InContext, double InScheduledTime)
-        : EventContext(InContext)
-        , ScheduledTime(InScheduledTime)
-    {
-    }
-};
-
-/**
- * Event statistics structure for tracking event bus performance
- */
-USTRUCT()
-struct FRPGEventStatistics
-{
-    GENERATED_BODY()
-
-    int32 TotalEventsPublished = 0;
-    int32 TotalEventsHandled = 0;
-    int32 TotalEventsCancelled = 0;
-    TMap<ERPGEventType, int32> EventTypeCounts;
-    TMap<ERPGEventType, float> EventProcessingTimes;
-    double LastResetTime = 0.0;
-
-    void Reset()
-    {
-        TotalEventsPublished = 0;
-        TotalEventsHandled = 0;
-        TotalEventsCancelled = 0;
-        EventTypeCounts.Empty();
-        EventProcessingTimes.Empty();
-        LastResetTime = FApp::GetCurrentTime();
-    }
-};
-
-/**
- * Central event bus system for RPG events
- * Manages event publishing, subscription, and routing throughout the game
- * Integrates with rpg-toolkit event system via Go bindings
+ * Core toolkit integration subsystem for RPG events
+ * Exposes the actual rpg-toolkit events package functions
+ * NO custom event management - just raw toolkit exposure
+ * Swiss Army Knife Standard: 1:1 mapping of toolkit API
  */
 UCLASS()
 class SESHAT_API URPGEventBusSubsystem : public UGameInstanceSubsystem
@@ -78,153 +17,268 @@ class SESHAT_API URPGEventBusSubsystem : public UGameInstanceSubsystem
     GENERATED_BODY()
 
 public:
-    // USubsystem interface
+    // Begin USubsystem
     virtual void Initialize(FSubsystemCollectionBase& Collection) override;
     virtual void Deinitialize() override;
+    // End USubsystem
 
-    // Event publishing
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    bool PublishEvent(const FRPGEventContext& EventContext);
+    // EventBus Management Functions (from events/eventbus.go)
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString CreateEventBus();
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    bool PublishEvent(const FString& EventType, const FString& SourceID, const FString& TargetID, const FString& ContextData);
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString SubscribeEvent(const FString& EventType, int32 Priority);
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    bool UnsubscribeEvent(const FString& SubscriptionID);
 
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    bool PublishEventDeferred(const FRPGEventContext& EventContext, float DelaySeconds = 0.0f);
+    // Event Type Constants (from events/types.go)
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventBeforeAttackRoll() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventOnAttackRoll() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventAfterAttackRoll() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventBeforeDamageRoll() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventOnTakeDamage() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventCalculateDamage() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventAfterDamage() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventEntityPlaced() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventEntityMoved() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventRoomCreated() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventTurnStart() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventTurnEnd() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventRoundStart() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventRoundEnd() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventStatusApplied() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventStatusRemoved() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetEventStatusCheck() const;
 
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    bool PublishEventToEntity(const FRPGEventContext& EventContext, TScriptInterface<IRPGEntityInterface> TargetEntity);
+    // Context Key Constants (from events/context.go)
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetContextKeyAttacker() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetContextKeyTarget() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetContextKeyWeapon() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetContextKeyDamageType() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetContextKeyAdvantage() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetContextKeyRoll() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetContextKeyOldPosition() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetContextKeyNewPosition() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetContextKeyRoomID() const;
 
-    // Event subscription management
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    FString Subscribe(ERPGEventType EventType, TScriptInterface<IRPGEventInterface> Handler, 
-                      ERPGEventPriority Priority = ERPGEventPriority::Normal);
+    // Modifier Creation Functions (from events/modifier.go)
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString CreateModifier(const FString& Source, const FString& ModifierType, int32 Value, int32 Priority);
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString CreateIntModifier(const FString& Source, const FString& ModifierType, int32 Value);
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString CreateDiceModifier(const FString& Source, const FString& ModifierType, const FString& DiceExpression);
 
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    bool Unsubscribe(ERPGEventType EventType, TScriptInterface<IRPGEventInterface> Handler);
+    // Duration Constants (from events/duration.go)
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetDurationPermanent() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetDurationRounds() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetDurationMinutes() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetDurationHours() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetDurationEncounter() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetDurationConcentration() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetDurationShortRest() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetDurationLongRest() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetDurationUntilDamaged() const;
+    
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    FString GetDurationUntilSave() const;
 
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    bool UnsubscribeByID(const FString& SubscriptionID);
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    void UnsubscribeAll(TScriptInterface<IRPGEventInterface> Handler);
-
-    // Subscription queries
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    int32 GetSubscriptionCount(ERPGEventType EventType) const;
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    TArray<FString> GetSubscriptionIDs(ERPGEventType EventType) const;
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    bool IsSubscribed(ERPGEventType EventType, TScriptInterface<IRPGEventInterface> Handler) const;
-
-    // Event filtering and routing
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    void SetEventFilter(ERPGEventType EventType, bool bAllowEvent);
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    bool IsEventFiltered(ERPGEventType EventType) const;
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    void ClearEventFilters();
-
-    // Event statistics and monitoring
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    int32 GetTotalEventCount() const { return EventStatistics.TotalEventsPublished; }
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    int32 GetEventTypeCount(ERPGEventType EventType) const;
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    float GetEventProcessingTime(ERPGEventType EventType) const;
-
-    // Event queue management
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    int32 GetQueuedEventCount() const { return DeferredEvents.Num(); }
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    void ProcessDeferredEvents();
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    void ClearEventQueue();
-
-    // Debug and utilities
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus", CallInEditor)
-    void DumpEventStatistics() const;
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus", CallInEditor)
-    void DumpSubscriptions() const;
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    void ResetEventStatistics();
-
-    // Toolkit integration
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    bool IsToolkitLoaded() const { return bToolkitLoaded; }
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Event Bus")
-    bool SyncEventWithToolkit(const FRPGEventContext& EventContext);
-
-    // Event bus lifecycle delegates
-    UPROPERTY(BlueprintAssignable, Category = "RPG Event Bus")
-    FOnRPGEventPublished OnEventPublished;
-
-    UPROPERTY(BlueprintAssignable, Category = "RPG Event Bus")
-    FOnRPGEventHandled OnEventHandled;
-
-    UPROPERTY(BlueprintAssignable, Category = "RPG Event Bus")
-    FOnRPGEventSubscription OnSubscriptionChanged;
-
-protected:
-    // Internal event processing
-    ERPGEventResult ProcessEventInternal(const FRPGEventContext& EventContext);
-    void NotifyHandlers(const FRPGEventContext& EventContext, const TArray<FRPGEventSubscription>& Handlers);
-    void UpdateEventStatistics(ERPGEventType EventType, float ProcessingTime, ERPGEventResult Result);
-
-    // Subscription management
-    void CleanupExpiredSubscriptions();
-    void SortSubscriptionsByPriority(TArray<FRPGEventSubscription>& Subscriptions);
-
-    // Toolkit integration
-    void LoadToolkitDLL();
-    void LoadEventDLLFunctions();
-    bool InitializeEventSystem();
+    // Toolkit Status
+    UFUNCTION(BlueprintCallable, Category = "RPG Events")
+    bool IsToolkitLoaded() const;
 
 private:
-    // Event subscriptions: EventType -> Array of Subscriptions
-    TMap<ERPGEventType, TArray<FRPGEventSubscription>> EventSubscriptions;
-
-    // Event filtering
-    TSet<ERPGEventType> FilteredEventTypes;
-
-    // Deferred event processing
-    TArray<FDeferredEvent> DeferredEvents;
-
-    // Event statistics
-    FRPGEventStatistics EventStatistics;
-
-    // Toolkit DLL integration
-    void* ToolkitDLLHandle = nullptr;
-    bool bToolkitLoaded = false;
-
-    // DLL function pointers for event system
-    typedef int32(*PublishEventFunc)(const char* eventType, const char* eventData);
-    typedef int32(*SubscribeEventFunc)(const char* eventType);
-    typedef int32(*UnsubscribeEventFunc)(const char* eventType);
-    typedef char*(*GetEventDataFunc)(int32 eventHandle);
-
-    PublishEventFunc PublishEventFuncPtr = nullptr;
-    SubscribeEventFunc SubscribeEventFuncPtr = nullptr;
-    UnsubscribeEventFunc UnsubscribeEventFuncPtr = nullptr;
-    GetEventDataFunc GetEventDataFuncPtr = nullptr;
-
-    // Event handle mapping (UE Event <-> Go toolkit handle)
-    TMap<FString, int32> EventToHandleMap; // "EventType:EventID" -> toolkit handle
-    TMap<int32, FString> HandleToEventMap; // toolkit handle -> "EventType:EventID"
-    int32 NextEventHandle = 1;
-
-    // Thread safety
-    mutable FCriticalSection EventBusLock;
-
-    // Cleanup timer
-    FTimerHandle CleanupTimerHandle;
-    void PerformPeriodicCleanup();
+    /** Function pointers to actual toolkit DLL functions */
+    typedef ANSICHAR* (*CreateEventBusFunc)();
+    typedef int32 (*PublishEventFunc)(const ANSICHAR*, const ANSICHAR*, const ANSICHAR*, const ANSICHAR*);
+    typedef ANSICHAR* (*SubscribeEventFunc)(const ANSICHAR*, int32);
+    typedef int32 (*UnsubscribeEventFunc)(const ANSICHAR*);
+    
+    // Event type constant functions
+    typedef ANSICHAR* (*GetEventBeforeAttackRollFunc)();
+    typedef ANSICHAR* (*GetEventOnAttackRollFunc)();
+    typedef ANSICHAR* (*GetEventAfterAttackRollFunc)();
+    typedef ANSICHAR* (*GetEventBeforeDamageRollFunc)();
+    typedef ANSICHAR* (*GetEventOnTakeDamageFunc)();
+    typedef ANSICHAR* (*GetEventCalculateDamageFunc)();
+    typedef ANSICHAR* (*GetEventAfterDamageFunc)();
+    typedef ANSICHAR* (*GetEventEntityPlacedFunc)();
+    typedef ANSICHAR* (*GetEventEntityMovedFunc)();
+    typedef ANSICHAR* (*GetEventRoomCreatedFunc)();
+    typedef ANSICHAR* (*GetEventTurnStartFunc)();
+    typedef ANSICHAR* (*GetEventTurnEndFunc)();
+    typedef ANSICHAR* (*GetEventRoundStartFunc)();
+    typedef ANSICHAR* (*GetEventRoundEndFunc)();
+    typedef ANSICHAR* (*GetEventStatusAppliedFunc)();
+    typedef ANSICHAR* (*GetEventStatusRemovedFunc)();
+    typedef ANSICHAR* (*GetEventStatusCheckFunc)();
+    
+    // Context key constant functions
+    typedef ANSICHAR* (*GetContextKeyAttackerFunc)();
+    typedef ANSICHAR* (*GetContextKeyTargetFunc)();
+    typedef ANSICHAR* (*GetContextKeyWeaponFunc)();
+    typedef ANSICHAR* (*GetContextKeyDamageTypeFunc)();
+    typedef ANSICHAR* (*GetContextKeyAdvantageFunc)();
+    typedef ANSICHAR* (*GetContextKeyRollFunc)();
+    typedef ANSICHAR* (*GetContextKeyOldPositionFunc)();
+    typedef ANSICHAR* (*GetContextKeyNewPositionFunc)();
+    typedef ANSICHAR* (*GetContextKeyRoomIDFunc)();
+    
+    // Modifier creation functions
+    typedef ANSICHAR* (*CreateModifierFunc)(const ANSICHAR*, const ANSICHAR*, int32, int32);
+    typedef ANSICHAR* (*CreateIntModifierFunc)(const ANSICHAR*, const ANSICHAR*, int32);
+    typedef ANSICHAR* (*CreateDiceModifierFunc)(const ANSICHAR*, const ANSICHAR*, const ANSICHAR*);
+    
+    // Duration constant functions
+    typedef ANSICHAR* (*GetDurationPermanentFunc)();
+    typedef ANSICHAR* (*GetDurationRoundsFunc)();
+    typedef ANSICHAR* (*GetDurationMinutesFunc)();
+    typedef ANSICHAR* (*GetDurationHoursFunc)();
+    typedef ANSICHAR* (*GetDurationEncounterFunc)();
+    typedef ANSICHAR* (*GetDurationConcentrationFunc)();
+    typedef ANSICHAR* (*GetDurationShortRestFunc)();
+    typedef ANSICHAR* (*GetDurationLongRestFunc)();
+    typedef ANSICHAR* (*GetDurationUntilDamagedFunc)();
+    typedef ANSICHAR* (*GetDurationUntilSaveFunc)();
+    
+    typedef void (*FreeEventStringFunc)(ANSICHAR*);
+    
+    // Function pointer instances
+    CreateEventBusFunc CreateEventBusFuncPtr;
+    PublishEventFunc PublishEventFuncPtr;
+    SubscribeEventFunc SubscribeEventFuncPtr;
+    UnsubscribeEventFunc UnsubscribeEventFuncPtr;
+    
+    GetEventBeforeAttackRollFunc GetEventBeforeAttackRollFuncPtr;
+    GetEventOnAttackRollFunc GetEventOnAttackRollFuncPtr;
+    GetEventAfterAttackRollFunc GetEventAfterAttackRollFuncPtr;
+    GetEventBeforeDamageRollFunc GetEventBeforeDamageRollFuncPtr;
+    GetEventOnTakeDamageFunc GetEventOnTakeDamageFuncPtr;
+    GetEventCalculateDamageFunc GetEventCalculateDamageFuncPtr;
+    GetEventAfterDamageFunc GetEventAfterDamageFuncPtr;
+    GetEventEntityPlacedFunc GetEventEntityPlacedFuncPtr;
+    GetEventEntityMovedFunc GetEventEntityMovedFuncPtr;
+    GetEventRoomCreatedFunc GetEventRoomCreatedFuncPtr;
+    GetEventTurnStartFunc GetEventTurnStartFuncPtr;
+    GetEventTurnEndFunc GetEventTurnEndFuncPtr;
+    GetEventRoundStartFunc GetEventRoundStartFuncPtr;
+    GetEventRoundEndFunc GetEventRoundEndFuncPtr;
+    GetEventStatusAppliedFunc GetEventStatusAppliedFuncPtr;
+    GetEventStatusRemovedFunc GetEventStatusRemovedFuncPtr;
+    GetEventStatusCheckFunc GetEventStatusCheckFuncPtr;
+    
+    GetContextKeyAttackerFunc GetContextKeyAttackerFuncPtr;
+    GetContextKeyTargetFunc GetContextKeyTargetFuncPtr;
+    GetContextKeyWeaponFunc GetContextKeyWeaponFuncPtr;
+    GetContextKeyDamageTypeFunc GetContextKeyDamageTypeFuncPtr;
+    GetContextKeyAdvantageFunc GetContextKeyAdvantageFuncPtr;
+    GetContextKeyRollFunc GetContextKeyRollFuncPtr;
+    GetContextKeyOldPositionFunc GetContextKeyOldPositionFuncPtr;
+    GetContextKeyNewPositionFunc GetContextKeyNewPositionFuncPtr;
+    GetContextKeyRoomIDFunc GetContextKeyRoomIDFuncPtr;
+    
+    CreateModifierFunc CreateModifierFuncPtr;
+    CreateIntModifierFunc CreateIntModifierFuncPtr;
+    CreateDiceModifierFunc CreateDiceModifierFuncPtr;
+    
+    GetDurationPermanentFunc GetDurationPermanentFuncPtr;
+    GetDurationRoundsFunc GetDurationRoundsFuncPtr;
+    GetDurationMinutesFunc GetDurationMinutesFuncPtr;
+    GetDurationHoursFunc GetDurationHoursFuncPtr;
+    GetDurationEncounterFunc GetDurationEncounterFuncPtr;
+    GetDurationConcentrationFunc GetDurationConcentrationFuncPtr;
+    GetDurationShortRestFunc GetDurationShortRestFuncPtr;
+    GetDurationLongRestFunc GetDurationLongRestFuncPtr;
+    GetDurationUntilDamagedFunc GetDurationUntilDamagedFuncPtr;
+    GetDurationUntilSaveFunc GetDurationUntilSaveFuncPtr;
+    
+    FreeEventStringFunc FreeEventStringFuncPtr;
+    
+    /** Whether the DLL functions were successfully loaded */
+    bool bFunctionsLoaded;
+    
+    /** Handle to the loaded DLL */
+    void* ToolkitDLLHandle;
+    
+    /** Load the DLL and function pointers */
+    void LoadDLLFunctions();
+    
+    /** Helper to convert C string and free memory */
+    FString ConvertAndFreeString(ANSICHAR* CStr) const;
+    
+    /** Shutdown safety check (following established pattern) */
+    bool IsSafeToCallFunction() const;
 };

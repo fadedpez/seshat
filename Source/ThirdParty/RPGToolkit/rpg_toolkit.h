@@ -19,8 +19,19 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 /* Start of preamble from import "C" comments.  */
 
 
+#line 3 "core_bindings.go"
+
+#include <stdlib.h>
+
+#line 1 "cgo-generated-wrapper"
 
 #line 3 "dice_bindings.go"
+
+#include <stdlib.h>
+
+#line 1 "cgo-generated-wrapper"
+
+#line 3 "events_bindings.go"
 
 #include <stdlib.h>
 
@@ -87,15 +98,94 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
-extern __declspec(dllexport) int CreateEntity(char* entityType, char* entityID);
-extern __declspec(dllexport) int ValidateEntity(char* entityType, char* entityID);
-extern __declspec(dllexport) char* GetEntityType(int entityHandle);
-extern __declspec(dllexport) char* GetEntityID(int entityHandle);
-extern __declspec(dllexport) void DestroyEntity(int entityHandle);
-extern __declspec(dllexport) int GetEntityCount();
-extern __declspec(dllexport) int EntityExists(char* entityType, char* entityID);
+extern __declspec(dllexport) char* GetEntityNotFoundError();
+extern __declspec(dllexport) char* GetInvalidEntityError();
+extern __declspec(dllexport) char* GetDuplicateEntityError();
+extern __declspec(dllexport) char* GetNilEntityError();
+extern __declspec(dllexport) char* GetEmptyIDError();
+extern __declspec(dllexport) char* GetInvalidTypeError();
+extern __declspec(dllexport) void* CreateEntityError(char* op, char* entityType, char* entityID, char* errMsg);
+extern __declspec(dllexport) char* GetEntityErrorMessage(void* errPtr);
+extern __declspec(dllexport) char* GetEntityErrorID(void* errPtr);
+extern __declspec(dllexport) char* GetEntityErrorType(void* errPtr);
+extern __declspec(dllexport) char* GetEntityErrorOp(void* errPtr);
+extern __declspec(dllexport) int ValidateEntityID(char* id);
+extern __declspec(dllexport) int ValidateEntityType(char* entityType);
+extern __declspec(dllexport) void FreeString(char* str);
+extern __declspec(dllexport) void* CreateCryptoRoller();
+extern __declspec(dllexport) int RollerRoll(void* rollerPtr, int size);
+extern __declspec(dllexport) int RollerRollN(void* rollerPtr, int count, int size, int* results);
+extern __declspec(dllexport) void* GetDefaultRoller();
+extern __declspec(dllexport) void SetDefaultRoller(void* rollerPtr);
+extern __declspec(dllexport) void* CreateRoll(int count, int size);
+extern __declspec(dllexport) void* CreateRollWithRoller(int count, int size, void* rollerPtr);
+extern __declspec(dllexport) int RollGetValue(void* rollPtr);
+extern __declspec(dllexport) char* RollGetDescription(void* rollPtr);
+extern __declspec(dllexport) int RollHasError(void* rollPtr);
+extern __declspec(dllexport) char* RollGetError(void* rollPtr);
+extern __declspec(dllexport) void* D4(int count);
+extern __declspec(dllexport) void* D6(int count);
+extern __declspec(dllexport) void* D8(int count);
+extern __declspec(dllexport) void* D10(int count);
+extern __declspec(dllexport) void* D12(int count);
+extern __declspec(dllexport) void* D20(int count);
+extern __declspec(dllexport) void* D100(int count);
 extern __declspec(dllexport) void* CreateDiceRoller();
 extern __declspec(dllexport) int RollDie(void* rollerPtr, int sides);
+extern __declspec(dllexport) char* CreateEventBus();
+extern __declspec(dllexport) int PublishEvent(char* eventType, char* sourceID, char* targetID, char* contextData);
+extern __declspec(dllexport) char* SubscribeEvent(char* eventType, int priority);
+extern __declspec(dllexport) int UnsubscribeEvent(char* subscriptionID);
+
+// Event Type Constants - Direct exposure of toolkit constants
+extern __declspec(dllexport) char* GetEventBeforeAttackRoll();
+extern __declspec(dllexport) char* GetEventOnAttackRoll();
+extern __declspec(dllexport) char* GetEventAfterAttackRoll();
+extern __declspec(dllexport) char* GetEventBeforeDamageRoll();
+extern __declspec(dllexport) char* GetEventOnTakeDamage();
+extern __declspec(dllexport) char* GetEventCalculateDamage();
+extern __declspec(dllexport) char* GetEventAfterDamage();
+extern __declspec(dllexport) char* GetEventEntityPlaced();
+extern __declspec(dllexport) char* GetEventEntityMoved();
+extern __declspec(dllexport) char* GetEventRoomCreated();
+extern __declspec(dllexport) char* GetEventTurnStart();
+extern __declspec(dllexport) char* GetEventTurnEnd();
+extern __declspec(dllexport) char* GetEventRoundStart();
+extern __declspec(dllexport) char* GetEventRoundEnd();
+extern __declspec(dllexport) char* GetEventStatusApplied();
+extern __declspec(dllexport) char* GetEventStatusRemoved();
+extern __declspec(dllexport) char* GetEventStatusCheck();
+
+// Context Key Constants - Direct exposure of toolkit constants
+extern __declspec(dllexport) char* GetContextKeyAttacker();
+extern __declspec(dllexport) char* GetContextKeyTarget();
+extern __declspec(dllexport) char* GetContextKeyWeapon();
+extern __declspec(dllexport) char* GetContextKeyDamageType();
+extern __declspec(dllexport) char* GetContextKeyAdvantage();
+extern __declspec(dllexport) char* GetContextKeyRoll();
+extern __declspec(dllexport) char* GetContextKeyOldPosition();
+extern __declspec(dllexport) char* GetContextKeyNewPosition();
+extern __declspec(dllexport) char* GetContextKeyRoomID();
+
+// Modifier Creation Functions - Direct exposure of toolkit factories
+extern __declspec(dllexport) char* CreateModifier(char* source, char* modifierType, int value, int priority);
+extern __declspec(dllexport) char* CreateIntModifier(char* source, char* modifierType, int value);
+extern __declspec(dllexport) char* CreateDiceModifier(char* source, char* modifierType, char* diceExpression);
+
+// Duration Constants - Direct exposure of toolkit duration types
+extern __declspec(dllexport) char* GetDurationPermanent();
+extern __declspec(dllexport) char* GetDurationRounds();
+extern __declspec(dllexport) char* GetDurationMinutes();
+extern __declspec(dllexport) char* GetDurationHours();
+extern __declspec(dllexport) char* GetDurationEncounter();
+extern __declspec(dllexport) char* GetDurationConcentration();
+extern __declspec(dllexport) char* GetDurationShortRest();
+extern __declspec(dllexport) char* GetDurationLongRest();
+extern __declspec(dllexport) char* GetDurationUntilDamaged();
+extern __declspec(dllexport) char* GetDurationUntilSave();
+
+// Memory management
+extern __declspec(dllexport) void FreeEventString(char* str);
 extern __declspec(dllexport) char* GetVersion();
 extern __declspec(dllexport) int Initialize();
 extern __declspec(dllexport) void Cleanup();

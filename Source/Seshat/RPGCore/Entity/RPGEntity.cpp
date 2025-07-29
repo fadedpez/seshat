@@ -39,28 +39,33 @@ void ARPGEntity::RegisterWithSubsystem()
         return;
     }
 
-    if (!IsValidEntity())
-    {
-        UE_LOG(LogTemp, Error, TEXT("ARPGEntity::RegisterWithSubsystem: Cannot register invalid entity"));
-        return;
-    }
-
     URPGEntitySubsystem* EntitySubsystem = GetGameInstance()->GetSubsystem<URPGEntitySubsystem>();
     if (EntitySubsystem)
     {
-        TScriptInterface<IRPGEntityInterface> EntityInterface(this);
-        FRPGEntityValidationResult Result = EntitySubsystem->RegisterEntity(EntityInterface);
+        // Use raw toolkit validation functions - no custom registration system
+        bool bValidID = EntitySubsystem->ValidateEntityID(EntityID);
+        bool bValidType = EntitySubsystem->ValidateEntityType(EntityType);
         
-        if (Result.bIsValid)
+        if (bValidID && bValidType)
         {
             bRegisteredWithSubsystem = true;
-            UE_LOG(LogTemp, Log, TEXT("ARPGEntity::RegisterWithSubsystem: Successfully registered entity %s:%s"), 
+            UE_LOG(LogTemp, Log, TEXT("ARPGEntity::RegisterWithSubsystem: Successfully validated entity %s:%s"), 
                    *EntityType, *EntityID);
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("ARPGEntity::RegisterWithSubsystem: Failed to register entity %s:%s - %s"), 
-                   *EntityType, *EntityID, *Result.Error.GetFormattedMessage());
+            FString ErrorMessage;
+            if (!bValidID)
+            {
+                ErrorMessage += FString::Printf(TEXT("Invalid ID: %s. "), *EntitySubsystem->GetInvalidEntityError());
+            }
+            if (!bValidType)
+            {
+                ErrorMessage += FString::Printf(TEXT("Invalid Type: %s. "), *EntitySubsystem->GetInvalidTypeError());
+            }
+            
+            UE_LOG(LogTemp, Error, TEXT("ARPGEntity::RegisterWithSubsystem: Failed to validate entity %s:%s - %s"), 
+                   *EntityType, *EntityID, *ErrorMessage);
         }
     }
     else
@@ -76,22 +81,11 @@ void ARPGEntity::UnregisterFromSubsystem()
         return;
     }
 
-    URPGEntitySubsystem* EntitySubsystem = GetGameInstance()->GetSubsystem<URPGEntitySubsystem>();
-    if (EntitySubsystem)
-    {
-        bool bSuccess = EntitySubsystem->UnregisterEntity(EntityID, EntityType);
-        if (bSuccess)
-        {
-            bRegisteredWithSubsystem = false;
-            UE_LOG(LogTemp, Log, TEXT("ARPGEntity::UnregisterFromSubsystem: Successfully unregistered entity %s:%s"), 
-                   *EntityType, *EntityID);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("ARPGEntity::UnregisterFromSubsystem: Failed to unregister entity %s:%s"), 
-                   *EntityType, *EntityID);
-        }
-    }
+    // Swiss Army Knife Standard: No custom unregister system in toolkit
+    // Just mark as unregistered - toolkit doesn't track entity state
+    bRegisteredWithSubsystem = false;
+    UE_LOG(LogTemp, Log, TEXT("ARPGEntity::UnregisterFromSubsystem: Entity %s:%s marked as unregistered"), 
+           *EntityType, *EntityID);
 }
 
 void ARPGEntity::InitializeEntity()

@@ -1,158 +1,114 @@
 package main
 
+/*
+#include <stdlib.h>
+*/
 import "C"
 import (
-	"sync"
+	"errors"
+	"unsafe"
 
-	"github.com/google/uuid"
+	"github.com/KirkDiggler/rpg-toolkit/core"
 )
 
-// Entity represents a game entity in the toolkit
-type Entity struct {
-	ID   string
-	Type string
+// Core Error Constants Exposure
+// These expose the actual toolkit error constants from core/errors.go
+
+//export GetEntityNotFoundError
+func GetEntityNotFoundError() *C.char {
+	return C.CString(core.ErrEntityNotFound.Error())
 }
 
-// GetID implements core.Entity interface
-func (e *Entity) GetID() string {
-	return e.ID
+//export GetInvalidEntityError
+func GetInvalidEntityError() *C.char {
+	return C.CString(core.ErrInvalidEntity.Error())
 }
 
-// GetType implements core.Entity interface
-func (e *Entity) GetType() string {
-	return e.Type
+//export GetDuplicateEntityError
+func GetDuplicateEntityError() *C.char {
+	return C.CString(core.ErrDuplicateEntity.Error())
 }
 
-// Global entity storage for the binding layer
-var (
-	entities    = make(map[int32]*Entity)
-	entityMutex = sync.RWMutex{}
-	nextHandle  = int32(1)
-)
-
-// Helper function to get next entity handle
-func getNextHandle() int32 {
-	entityMutex.Lock()
-	defer entityMutex.Unlock()
-	handle := nextHandle
-	nextHandle++
-	return handle
+//export GetNilEntityError
+func GetNilEntityError() *C.char {
+	return C.CString(core.ErrNilEntity.Error())
 }
 
-//export CreateEntity
-func CreateEntity(entityType *C.char, entityID *C.char) C.int {
-	goType := C.GoString(entityType)
-	goID := C.GoString(entityID)
+//export GetEmptyIDError
+func GetEmptyIDError() *C.char {
+	return C.CString(core.ErrEmptyID.Error())
+}
 
-	// Generate ID if not provided
-	if goID == "" {
-		goID = uuid.New().String()
+//export GetInvalidTypeError
+func GetInvalidTypeError() *C.char {
+	return C.CString(core.ErrInvalidType.Error())
+}
+
+// EntityError Struct Handling
+// These expose the actual toolkit EntityError struct from core/errors.go
+
+//export CreateEntityError
+func CreateEntityError(op, entityType, entityID, errMsg *C.char) unsafe.Pointer {
+	opStr := C.GoString(op)
+	typeStr := C.GoString(entityType)
+	idStr := C.GoString(entityID)
+	errStr := C.GoString(errMsg)
+
+	baseErr := errors.New(errStr)
+	entityErr := core.NewEntityError(opStr, typeStr, idStr, baseErr)
+
+	return unsafe.Pointer(entityErr)
+}
+
+//export GetEntityErrorMessage
+func GetEntityErrorMessage(errPtr unsafe.Pointer) *C.char {
+	entityErr := (*core.EntityError)(errPtr)
+	return C.CString(entityErr.Error())
+}
+
+//export GetEntityErrorID
+func GetEntityErrorID(errPtr unsafe.Pointer) *C.char {
+	entityErr := (*core.EntityError)(errPtr)
+	return C.CString(entityErr.EntityID)
+}
+
+//export GetEntityErrorType
+func GetEntityErrorType(errPtr unsafe.Pointer) *C.char {
+	entityErr := (*core.EntityError)(errPtr)
+	return C.CString(entityErr.EntityType)
+}
+
+//export GetEntityErrorOp
+func GetEntityErrorOp(errPtr unsafe.Pointer) *C.char {
+	entityErr := (*core.EntityError)(errPtr)
+	return C.CString(entityErr.Op)
+}
+
+// Entity Interface Validation
+// These provide validation functions for Entity interface compliance
+
+//export ValidateEntityID
+func ValidateEntityID(id *C.char) C.int {
+	idStr := C.GoString(id)
+	if idStr == "" {
+		return 0 // false
 	}
-
-	// Validate entity type
-	if goType == "" {
-		return -1 // Invalid entity type
-	}
-
-	// Create entity
-	entity := &Entity{
-		ID:   goID,
-		Type: goType,
-	}
-
-	// Store entity and return handle
-	handle := getNextHandle()
-	entityMutex.Lock()
-	entities[handle] = entity
-	entityMutex.Unlock()
-
-	// TODO: Integrate with actual toolkit core package when available
-	// For now, just store in our binding layer
-
-	return C.int(handle)
+	return 1 // true
 }
 
-//export ValidateEntity
-func ValidateEntity(entityType *C.char, entityID *C.char) C.int {
-	goType := C.GoString(entityType)
-	goID := C.GoString(entityID)
-
-	// Basic validation rules
-	if goType == "" {
-		return 6 // InvalidType error (matches ERPGEntityError enum)
+//export ValidateEntityType
+func ValidateEntityType(entityType *C.char) C.int {
+	typeStr := C.GoString(entityType)
+	if typeStr == "" {
+		return 0 // false
 	}
-
-	if goID == "" {
-		return 5 // EmptyID error (matches ERPGEntityError enum)
-	}
-
-	// Additional validation can be added here
-	// TODO: Use actual toolkit validation when core package is integrated
-
-	return 0 // No error
+	return 1 // true
 }
 
-//export GetEntityType
-func GetEntityType(entityHandle C.int) *C.char {
-	handle := int32(entityHandle)
+// Memory Management
+// String cleanup function for C interop
 
-	entityMutex.RLock()
-	entity, exists := entities[handle]
-	entityMutex.RUnlock()
-
-	if !exists {
-		return C.CString("") // Entity not found
-	}
-
-	return C.CString(entity.Type)
-}
-
-//export GetEntityID
-func GetEntityID(entityHandle C.int) *C.char {
-	handle := int32(entityHandle)
-
-	entityMutex.RLock()
-	entity, exists := entities[handle]
-	entityMutex.RUnlock()
-
-	if !exists {
-		return C.CString("") // Entity not found
-	}
-
-	return C.CString(entity.ID)
-}
-
-//export DestroyEntity
-func DestroyEntity(entityHandle C.int) {
-	handle := int32(entityHandle)
-
-	entityMutex.Lock()
-	delete(entities, handle)
-	entityMutex.Unlock()
-}
-
-//export GetEntityCount
-func GetEntityCount() C.int {
-	entityMutex.RLock()
-	count := len(entities)
-	entityMutex.RUnlock()
-
-	return C.int(count)
-}
-
-//export EntityExists
-func EntityExists(entityType *C.char, entityID *C.char) C.int {
-	goType := C.GoString(entityType)
-	goID := C.GoString(entityID)
-
-	entityMutex.RLock()
-	defer entityMutex.RUnlock()
-
-	for _, entity := range entities {
-		if entity.Type == goType && entity.ID == goID {
-			return 1 // Found
-		}
-	}
-
-	return 0 // Not found
+//export FreeString
+func FreeString(str *C.char) {
+	C.free(unsafe.Pointer(str))
 }
