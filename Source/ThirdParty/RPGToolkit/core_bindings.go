@@ -84,6 +84,31 @@ func GetEntityErrorOp(errPtr unsafe.Pointer) *C.char {
 	return C.CString(entityErr.Op)
 }
 
+// Automatic Cleanup Entity Error Function
+// Extracts all values immediately and handles memory cleanup automatically
+
+//export CreateEntityErrorComplete
+func CreateEntityErrorComplete(op, entityType, entityID, errMsg *C.char, 
+                              outOp, outType, outID, outMessage **C.char) C.int {
+	// Create EntityError object
+	opStr := C.GoString(op)
+	typeStr := C.GoString(entityType)
+	idStr := C.GoString(entityID)
+	errStr := C.GoString(errMsg)
+
+	baseErr := errors.New(errStr)
+	entityErr := core.NewEntityError(opStr, typeStr, idStr, baseErr)
+	
+	// Extract all values immediately
+	*outOp = C.CString(entityErr.Op)
+	*outType = C.CString(entityErr.EntityType)
+	*outID = C.CString(entityErr.EntityID)
+	*outMessage = C.CString(entityErr.Error())
+	
+	return 1 // Success
+	// entityErr goes out of scope and gets GC'd naturally - no registry needed!
+}
+
 // Entity Interface Validation
 // These provide validation functions for Entity interface compliance
 
