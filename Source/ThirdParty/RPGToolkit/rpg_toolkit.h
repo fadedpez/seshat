@@ -19,6 +19,7 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 /* Start of preamble from import "C" comments.  */
 
 
+
 #line 3 "core_bindings.go"
 
 #include <stdlib.h>
@@ -98,6 +99,7 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
+extern __declspec(dllexport) int CreateCharacterComplete(char* raceDataJSON, char* classDataJSON, char* backgroundDataJSON, char* characterName, int str, int dex, int con, int intel, int wis, int cha, char** outID, char** outName, int* outLevel, int* outProficiencyBonus, char** outRaceID, char** outClassID, char** outBackgroundID, int* outStr, int* outDex, int* outCon, int* outInt, int* outWis, int* outCha, char** outSize, int* outSpeed, int* outHP, int* outMaxHP, int* outAC, int* outInitiative, char** outLanguages, char** outFeatures, char** outError);
 extern __declspec(dllexport) char* GetEntityNotFoundError();
 extern __declspec(dllexport) char* GetInvalidEntityError();
 extern __declspec(dllexport) char* GetDuplicateEntityError();
