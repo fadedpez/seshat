@@ -8,6 +8,49 @@
 #include "RPGCore/Events/RPGEventContext.h"
 #include "RPGDiceSubsystem.generated.h"
 
+/**
+ * Blueprint-friendly dice roll result with automatic memory management
+ */
+USTRUCT(BlueprintType)
+struct SESHAT_API FRollResult
+{
+    GENERATED_BODY()
+
+    /** The numeric result of the dice roll */
+    UPROPERTY(BlueprintReadOnly, Category = "Roll Result")
+    int32 Value = -1;
+
+    /** Human-readable description (e.g., "+d20[15]=15") */
+    UPROPERTY(BlueprintReadOnly, Category = "Roll Result")
+    FString Description;
+
+    /** Whether this roll had an error */
+    UPROPERTY(BlueprintReadOnly, Category = "Roll Result")
+    bool HasError = false;
+
+    /** Error message if HasError is true */
+    UPROPERTY(BlueprintReadOnly, Category = "Roll Result")
+    FString ErrorMessage;
+
+    /** Default constructor */
+    FRollResult()
+        : Value(-1), HasError(false)
+    {
+    }
+
+    /** Constructor for successful roll */
+    FRollResult(int32 InValue, const FString& InDescription)
+        : Value(InValue), Description(InDescription), HasError(false)
+    {
+    }
+
+    /** Constructor for failed roll */
+    FRollResult(const FString& InErrorMessage)
+        : Value(-1), HasError(true), ErrorMessage(InErrorMessage)
+    {
+    }
+};
+
 // Forward declarations
 class URPGEventBusSubsystem;
 
@@ -33,43 +76,30 @@ public:
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
     TArray<int32> RollerRollN(int32 Count, int32 Size);
 
-    // Roll Struct Functions (from dice/modifier.go)  
+    // Legacy Roll Struct Functions (deprecated - use FRollResult functions)
+    // These remain for backward compatibility but should not be used in new code
+
+    // Automatic Cleanup Helper Functions (from dice/modifier.go)
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 CreateRoll(int32 Count, int32 Size);
+    FRollResult D4(int32 Count = 1);
 
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 RollGetValue(int32 RollHandle);
+    FRollResult D6(int32 Count = 1);
 
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    FString RollGetDescription(int32 RollHandle);
+    FRollResult D8(int32 Count = 1);
 
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    bool RollHasError(int32 RollHandle);
+    FRollResult D10(int32 Count = 1);
 
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    FString RollGetError(int32 RollHandle);
-
-    // Helper Functions (from dice/modifier.go)
-    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 D4(int32 Count);
+    FRollResult D12(int32 Count = 1);
 
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 D6(int32 Count);
+    FRollResult D20(int32 Count = 1);
 
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 D8(int32 Count);
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 D10(int32 Count);
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 D12(int32 Count);
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 D20(int32 Count);
-
-    UFUNCTION(BlueprintCallable, Category = "RPG Dice")
-    int32 D100(int32 Count);
+    FRollResult D100(int32 Count = 1);
 
     // Toolkit Status
     UFUNCTION(BlueprintCallable, Category = "RPG Dice")
@@ -89,24 +119,25 @@ private:
     // Roll struct functions
     typedef void* (*CreateRollFunc)(int32, int32);
     typedef void* (*CreateRollWithRollerFunc)(int32, int32, void*);
-    typedef int32 (*RollGetValueFunc)(void*);
-    typedef ANSICHAR* (*RollGetDescriptionFunc)(void*);
-    typedef int32 (*RollHasErrorFunc)(void*);
-    typedef ANSICHAR* (*RollGetErrorFunc)(void*);
+    typedef int32 (*RollGetValueFunc)(uintptr_t);
+    typedef ANSICHAR* (*RollGetDescriptionFunc)(uintptr_t);
+    typedef int32 (*RollHasErrorFunc)(uintptr_t);
+    typedef ANSICHAR* (*RollGetErrorFunc)(uintptr_t);
     
-    // Helper functions
-    typedef void* (*D4Func)(int32);
-    typedef void* (*D6Func)(int32);
-    typedef void* (*D8Func)(int32);
-    typedef void* (*D10Func)(int32);
-    typedef void* (*D12Func)(int32);
-    typedef void* (*D20Func)(int32);
-    typedef void* (*D100Func)(int32);
+    // Automatic cleanup helper functions
+    typedef int32 (*D4CompleteFunc)(int32, int32*, ANSICHAR**, ANSICHAR**);
+    typedef int32 (*D6CompleteFunc)(int32, int32*, ANSICHAR**, ANSICHAR**);
+    typedef int32 (*D8CompleteFunc)(int32, int32*, ANSICHAR**, ANSICHAR**);
+    typedef int32 (*D10CompleteFunc)(int32, int32*, ANSICHAR**, ANSICHAR**);
+    typedef int32 (*D12CompleteFunc)(int32, int32*, ANSICHAR**, ANSICHAR**);
+    typedef int32 (*D20CompleteFunc)(int32, int32*, ANSICHAR**, ANSICHAR**);
+    typedef int32 (*D100CompleteFunc)(int32, int32*, ANSICHAR**, ANSICHAR**);
     
     // Legacy functions
     typedef void* (*CreateDiceRollerFunc)();
     typedef int32 (*RollDieFunc)(void*, int32);
     typedef void (*FreeStringFunc)(ANSICHAR*);
+    
     
     // Function pointer instances
     CreateCryptoRollerFunc CreateCryptoRollerFuncPtr;
@@ -122,13 +153,13 @@ private:
     RollHasErrorFunc RollHasErrorFuncPtr;
     RollGetErrorFunc RollGetErrorFuncPtr;
     
-    D4Func D4FuncPtr;
-    D6Func D6FuncPtr;
-    D8Func D8FuncPtr;
-    D10Func D10FuncPtr;
-    D12Func D12FuncPtr;
-    D20Func D20FuncPtr;
-    D100Func D100FuncPtr;
+    D4CompleteFunc D4CompleteFuncPtr;
+    D6CompleteFunc D6CompleteFuncPtr;
+    D8CompleteFunc D8CompleteFuncPtr;
+    D10CompleteFunc D10CompleteFuncPtr;
+    D12CompleteFunc D12CompleteFuncPtr;
+    D20CompleteFunc D20CompleteFuncPtr;
+    D100CompleteFunc D100CompleteFuncPtr;
     
     CreateDiceRollerFunc CreateDiceRollerFuncPtr;
     RollDieFunc RollDieFuncPtr;
@@ -143,17 +174,10 @@ private:
     /** Dice roller instance from the toolkit */
     void* DiceRollerPtr;
     
-    /** Roll handle management */
-    TMap<int32, void*> RollHandles;
-    int32 NextRollHandle = 1;
 
     /** Load the DLL and function pointers */
     void LoadDLLFunctions();
     
-    /** Handle management helpers */
-    int32 CreateRollHandle(void* RollPtr);
-    void* GetRollPtr(int32 Handle);
-    void ReleaseRollHandle(int32 Handle);
     
     /** Helper to convert C string and free memory */
     FString ConvertAndFreeString(ANSICHAR* CStr) const;
@@ -161,6 +185,4 @@ private:
     /** Shutdown safety check (following existing pattern) */
     bool IsSafeToCallFunction() const;
     
-    /** Memory management for Roll objects */
-    void CleanupRollHandles();
 };
