@@ -12,7 +12,6 @@ void URPGDiceSubsystem::Initialize(FSubsystemCollectionBase& Collection)
     bFunctionsLoaded = false;
     ToolkitDLLHandle = nullptr;
     DiceRollerPtr = nullptr;
-    NextRollHandle = 1;
     
     // Initialize all function pointers
     CreateCryptoRollerFuncPtr = nullptr;
@@ -28,13 +27,13 @@ void URPGDiceSubsystem::Initialize(FSubsystemCollectionBase& Collection)
     RollHasErrorFuncPtr = nullptr;
     RollGetErrorFuncPtr = nullptr;
     
-    D4FuncPtr = nullptr;
-    D6FuncPtr = nullptr;
-    D8FuncPtr = nullptr;
-    D10FuncPtr = nullptr;
-    D12FuncPtr = nullptr;
-    D20FuncPtr = nullptr;
-    D100FuncPtr = nullptr;
+    D4CompleteFuncPtr = nullptr;
+    D6CompleteFuncPtr = nullptr;
+    D8CompleteFuncPtr = nullptr;
+    D10CompleteFuncPtr = nullptr;
+    D12CompleteFuncPtr = nullptr;
+    D20CompleteFuncPtr = nullptr;
+    D100CompleteFuncPtr = nullptr;
     
     CreateDiceRollerFuncPtr = nullptr;
     RollDieFuncPtr = nullptr;
@@ -64,8 +63,7 @@ void URPGDiceSubsystem::Deinitialize()
 {
     UE_LOG(LogTemp, Warning, TEXT("RPGDiceSubsystem: Deinitializing"));
     
-    // Clean up roll handles
-    CleanupRollHandles();
+    // No cleanup needed - automatic cleanup approach
     
     // Clear all function pointers
     CreateCryptoRollerFuncPtr = nullptr;
@@ -81,13 +79,13 @@ void URPGDiceSubsystem::Deinitialize()
     RollHasErrorFuncPtr = nullptr;
     RollGetErrorFuncPtr = nullptr;
     
-    D4FuncPtr = nullptr;
-    D6FuncPtr = nullptr;
-    D8FuncPtr = nullptr;
-    D10FuncPtr = nullptr;
-    D12FuncPtr = nullptr;
-    D20FuncPtr = nullptr;
-    D100FuncPtr = nullptr;
+    D4CompleteFuncPtr = nullptr;
+    D6CompleteFuncPtr = nullptr;
+    D8CompleteFuncPtr = nullptr;
+    D10CompleteFuncPtr = nullptr;
+    D12CompleteFuncPtr = nullptr;
+    D20CompleteFuncPtr = nullptr;
+    D100CompleteFuncPtr = nullptr;
     
     CreateDiceRollerFuncPtr = nullptr;
     RollDieFuncPtr = nullptr;
@@ -132,201 +130,165 @@ TArray<int32> URPGDiceSubsystem::RollerRollN(int32 Count, int32 Size)
     return Results;
 }
 
-// Roll Struct Functions Implementation
-int32 URPGDiceSubsystem::CreateRoll(int32 Count, int32 Size)
-{
-    if (!IsSafeToCallFunction() || !CreateRollFuncPtr)
-    {
-        return -1;
-    }
-    
-    void* RollPtr = CreateRollFuncPtr(Count, Size);
-    if (!RollPtr)
-    {
-        return -1;
-    }
-    
-    return CreateRollHandle(RollPtr);
-}
-
-int32 URPGDiceSubsystem::RollGetValue(int32 RollHandle)
-{
-    if (!IsSafeToCallFunction() || !RollGetValueFuncPtr)
-    {
-        return -1;
-    }
-    
-    void* RollPtr = GetRollPtr(RollHandle);
-    if (!RollPtr)
-    {
-        return -1;
-    }
-    
-    return RollGetValueFuncPtr(RollPtr);
-}
-
-FString URPGDiceSubsystem::RollGetDescription(int32 RollHandle)
-{
-    if (!IsSafeToCallFunction() || !RollGetDescriptionFuncPtr)
-    {
-        return TEXT("Error: Function not available");
-    }
-    
-    void* RollPtr = GetRollPtr(RollHandle);
-    if (!RollPtr)
-    {
-        return TEXT("Error: Invalid roll handle");
-    }
-    
-    ANSICHAR* CStr = RollGetDescriptionFuncPtr(RollPtr);
-    return ConvertAndFreeString(CStr);
-}
-
-bool URPGDiceSubsystem::RollHasError(int32 RollHandle)
-{
-    if (!IsSafeToCallFunction() || !RollHasErrorFuncPtr)
-    {
-        return true; // Assume error if can't check
-    }
-    
-    void* RollPtr = GetRollPtr(RollHandle);
-    if (!RollPtr)
-    {
-        return true;
-    }
-    
-    return RollHasErrorFuncPtr(RollPtr) != 0;
-}
-
-FString URPGDiceSubsystem::RollGetError(int32 RollHandle)
-{
-    if (!IsSafeToCallFunction() || !RollGetErrorFuncPtr)
-    {
-        return TEXT("Error: Function not available");
-    }
-    
-    void* RollPtr = GetRollPtr(RollHandle);
-    if (!RollPtr)
-    {
-        return TEXT("Error: Invalid roll handle");
-    }
-    
-    ANSICHAR* CStr = RollGetErrorFuncPtr(RollPtr);
-    return ConvertAndFreeString(CStr);
-}
+// Legacy Roll Struct Functions (Deprecated - Use FRollResult functions instead)
+// These functions remain for backward compatibility but should not be used
+// New Blueprint code should use D4(), D6(), D8(), D10(), D12(), D20(), D100() functions
 
 // Helper Functions Implementation
-int32 URPGDiceSubsystem::D4(int32 Count)
+FRollResult URPGDiceSubsystem::D4(int32 Count)
 {
-    if (!IsSafeToCallFunction() || !D4FuncPtr)
+    if (!IsSafeToCallFunction() || !D4CompleteFuncPtr)
     {
-        return -1;
+        return FRollResult(TEXT("Function not available"));
     }
     
-    void* RollPtr = D4FuncPtr(Count);
-    if (!RollPtr)
-    {
-        return -1;
-    }
+    int32 value;
+    ANSICHAR* desc;
+    ANSICHAR* error;
     
-    return CreateRollHandle(RollPtr);
+    int32 success = D4CompleteFuncPtr(Count, &value, &desc, &error);
+    
+    FRollResult Result;
+    Result.Value = value;
+    Result.Description = ConvertAndFreeString(desc);
+    Result.HasError = (success == 0);
+    Result.ErrorMessage = ConvertAndFreeString(error);
+    
+    return Result;
 }
 
-int32 URPGDiceSubsystem::D6(int32 Count)
+FRollResult URPGDiceSubsystem::D6(int32 Count)
 {
-    if (!IsSafeToCallFunction() || !D6FuncPtr)
+    if (!IsSafeToCallFunction() || !D6CompleteFuncPtr)
     {
-        return -1;
+        return FRollResult(TEXT("Function not available"));
     }
     
-    void* RollPtr = D6FuncPtr(Count);
-    if (!RollPtr)
-    {
-        return -1;
-    }
+    int32 value;
+    ANSICHAR* desc;
+    ANSICHAR* error;
     
-    return CreateRollHandle(RollPtr);
+    int32 success = D6CompleteFuncPtr(Count, &value, &desc, &error);
+    
+    FRollResult Result;
+    Result.Value = value;
+    Result.Description = ConvertAndFreeString(desc);
+    Result.HasError = (success == 0);
+    Result.ErrorMessage = ConvertAndFreeString(error);
+    
+    return Result;
 }
 
-int32 URPGDiceSubsystem::D8(int32 Count)
+FRollResult URPGDiceSubsystem::D8(int32 Count)
 {
-    if (!IsSafeToCallFunction() || !D8FuncPtr)
+    if (!IsSafeToCallFunction() || !D8CompleteFuncPtr)
     {
-        return -1;
+        return FRollResult(TEXT("Function not available"));
     }
     
-    void* RollPtr = D8FuncPtr(Count);
-    if (!RollPtr)
-    {
-        return -1;
-    }
+    int32 value;
+    ANSICHAR* desc;
+    ANSICHAR* error;
     
-    return CreateRollHandle(RollPtr);
+    int32 success = D8CompleteFuncPtr(Count, &value, &desc, &error);
+    
+    FRollResult Result;
+    Result.Value = value;
+    Result.Description = ConvertAndFreeString(desc);
+    Result.HasError = (success == 0);
+    Result.ErrorMessage = ConvertAndFreeString(error);
+    
+    return Result;
 }
 
-int32 URPGDiceSubsystem::D10(int32 Count)
+FRollResult URPGDiceSubsystem::D10(int32 Count)
 {
-    if (!IsSafeToCallFunction() || !D10FuncPtr)
+    if (!IsSafeToCallFunction() || !D10CompleteFuncPtr)
     {
-        return -1;
+        return FRollResult(TEXT("Function not available"));
     }
     
-    void* RollPtr = D10FuncPtr(Count);
-    if (!RollPtr)
-    {
-        return -1;
-    }
+    int32 value;
+    ANSICHAR* desc;
+    ANSICHAR* error;
     
-    return CreateRollHandle(RollPtr);
+    int32 success = D10CompleteFuncPtr(Count, &value, &desc, &error);
+    
+    FRollResult Result;
+    Result.Value = value;
+    Result.Description = ConvertAndFreeString(desc);
+    Result.HasError = (success == 0);
+    Result.ErrorMessage = ConvertAndFreeString(error);
+    
+    return Result;
 }
 
-int32 URPGDiceSubsystem::D12(int32 Count)
+FRollResult URPGDiceSubsystem::D12(int32 Count)
 {
-    if (!IsSafeToCallFunction() || !D12FuncPtr)
+    if (!IsSafeToCallFunction() || !D12CompleteFuncPtr)
     {
-        return -1;
+        return FRollResult(TEXT("Function not available"));
     }
     
-    void* RollPtr = D12FuncPtr(Count);
-    if (!RollPtr)
-    {
-        return -1;
-    }
+    int32 value;
+    ANSICHAR* desc;
+    ANSICHAR* error;
     
-    return CreateRollHandle(RollPtr);
+    int32 success = D12CompleteFuncPtr(Count, &value, &desc, &error);
+    
+    FRollResult Result;
+    Result.Value = value;
+    Result.Description = ConvertAndFreeString(desc);
+    Result.HasError = (success == 0);
+    Result.ErrorMessage = ConvertAndFreeString(error);
+    
+    return Result;
 }
 
-int32 URPGDiceSubsystem::D20(int32 Count)
+FRollResult URPGDiceSubsystem::D20(int32 Count)
 {
-    if (!IsSafeToCallFunction() || !D20FuncPtr)
+    if (!IsSafeToCallFunction() || !D20CompleteFuncPtr)
     {
-        return -1;
+        return FRollResult(TEXT("Function not available"));
     }
     
-    void* RollPtr = D20FuncPtr(Count);
-    if (!RollPtr)
-    {
-        return -1;
-    }
+    int32 value;
+    ANSICHAR* desc;
+    ANSICHAR* error;
     
-    return CreateRollHandle(RollPtr);
+    int32 success = D20CompleteFuncPtr(Count, &value, &desc, &error);
+    
+    FRollResult Result;
+    Result.Value = value;
+    Result.Description = ConvertAndFreeString(desc);
+    Result.HasError = (success == 0);
+    Result.ErrorMessage = ConvertAndFreeString(error);
+    
+    return Result;
 }
 
-int32 URPGDiceSubsystem::D100(int32 Count)
+FRollResult URPGDiceSubsystem::D100(int32 Count)
 {
-    if (!IsSafeToCallFunction() || !D100FuncPtr)
+    if (!IsSafeToCallFunction() || !D100CompleteFuncPtr)
     {
-        return -1;
+        return FRollResult(TEXT("Function not available"));
     }
     
-    void* RollPtr = D100FuncPtr(Count);
-    if (!RollPtr)
-    {
-        return -1;
-    }
+    int32 value;
+    ANSICHAR* desc;
+    ANSICHAR* error;
     
-    return CreateRollHandle(RollPtr);
+    int32 success = D100CompleteFuncPtr(Count, &value, &desc, &error);
+    
+    FRollResult Result;
+    Result.Value = value;
+    Result.Description = ConvertAndFreeString(desc);
+    Result.HasError = (success == 0);
+    Result.ErrorMessage = ConvertAndFreeString(error);
+    
+    return Result;
 }
+
 
 
 // Toolkit Status
@@ -377,14 +339,14 @@ void URPGDiceSubsystem::LoadDLLFunctions()
     RollHasErrorFuncPtr = (RollHasErrorFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("RollHasError"));
     RollGetErrorFuncPtr = (RollGetErrorFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("RollGetError"));
     
-    // Load helper functions
-    D4FuncPtr = (D4Func)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D4"));
-    D6FuncPtr = (D6Func)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D6"));
-    D8FuncPtr = (D8Func)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D8"));
-    D10FuncPtr = (D10Func)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D10"));
-    D12FuncPtr = (D12Func)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D12"));
-    D20FuncPtr = (D20Func)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D20"));
-    D100FuncPtr = (D100Func)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D100"));
+    // Load automatic cleanup helper functions
+    D4CompleteFuncPtr = (D4CompleteFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D4Complete"));
+    D6CompleteFuncPtr = (D6CompleteFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D6Complete"));
+    D8CompleteFuncPtr = (D8CompleteFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D8Complete"));
+    D10CompleteFuncPtr = (D10CompleteFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D10Complete"));
+    D12CompleteFuncPtr = (D12CompleteFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D12Complete"));
+    D20CompleteFuncPtr = (D20CompleteFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D20Complete"));
+    D100CompleteFuncPtr = (D100CompleteFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("D100Complete"));
     
     // Load legacy functions
     CreateDiceRollerFuncPtr = (CreateDiceRollerFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("CreateDiceRoller"));
@@ -415,14 +377,14 @@ void URPGDiceSubsystem::LoadDLLFunctions()
         UE_LOG(LogTemp, Log, TEXT("  RollGetValue: %s"), RollGetValueFuncPtr ? TEXT("OK") : TEXT("FAILED"));
         UE_LOG(LogTemp, Log, TEXT("  RollGetDescription: %s"), RollGetDescriptionFuncPtr ? TEXT("OK") : TEXT("FAILED"));
         
-        UE_LOG(LogTemp, Log, TEXT("Helper Functions:"));
-        UE_LOG(LogTemp, Log, TEXT("  D4: %s"), D4FuncPtr ? TEXT("OK") : TEXT("FAILED"));
-        UE_LOG(LogTemp, Log, TEXT("  D6: %s"), D6FuncPtr ? TEXT("OK") : TEXT("FAILED"));
-        UE_LOG(LogTemp, Log, TEXT("  D8: %s"), D8FuncPtr ? TEXT("OK") : TEXT("FAILED"));
-        UE_LOG(LogTemp, Log, TEXT("  D10: %s"), D10FuncPtr ? TEXT("OK") : TEXT("FAILED"));
-        UE_LOG(LogTemp, Log, TEXT("  D12: %s"), D12FuncPtr ? TEXT("OK") : TEXT("FAILED"));
-        UE_LOG(LogTemp, Log, TEXT("  D20: %s"), D20FuncPtr ? TEXT("OK") : TEXT("FAILED"));
-        UE_LOG(LogTemp, Log, TEXT("  D100: %s"), D100FuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Log, TEXT("Automatic Cleanup Helper Functions:"));
+        UE_LOG(LogTemp, Log, TEXT("  D4Complete: %s"), D4CompleteFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Log, TEXT("  D6Complete: %s"), D6CompleteFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Log, TEXT("  D8Complete: %s"), D8CompleteFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Log, TEXT("  D10Complete: %s"), D10CompleteFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Log, TEXT("  D12Complete: %s"), D12CompleteFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Log, TEXT("  D20Complete: %s"), D20CompleteFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Log, TEXT("  D100Complete: %s"), D100CompleteFuncPtr ? TEXT("OK") : TEXT("FAILED"));
         UE_LOG(LogTemp, Log, TEXT("================================"));
     }
     else
@@ -431,32 +393,6 @@ void URPGDiceSubsystem::LoadDLLFunctions()
     }
 }
 
-// Handle Management Implementation
-int32 URPGDiceSubsystem::CreateRollHandle(void* RollPtr)
-{
-    if (!RollPtr)
-    {
-        return -1;
-    }
-    
-    int32 Handle = NextRollHandle++;
-    RollHandles.Add(Handle, RollPtr);
-    return Handle;
-}
-
-void* URPGDiceSubsystem::GetRollPtr(int32 Handle)
-{
-    if (void** Found = RollHandles.Find(Handle))
-    {
-        return *Found;
-    }
-    return nullptr;
-}
-
-void URPGDiceSubsystem::ReleaseRollHandle(int32 Handle)
-{
-    RollHandles.Remove(Handle);
-}
 
 FString URPGDiceSubsystem::ConvertAndFreeString(ANSICHAR* CStr) const
 {
@@ -482,9 +418,3 @@ bool URPGDiceSubsystem::IsSafeToCallFunction() const
     return bFunctionsLoaded && ToolkitDLLHandle != nullptr;
 }
 
-void URPGDiceSubsystem::CleanupRollHandles()
-{
-    UE_LOG(LogTemp, Warning, TEXT("RPGDiceSubsystem: Cleaning up %d roll handles"), RollHandles.Num());
-    RollHandles.Empty();
-    NextRollHandle = 1;
-}

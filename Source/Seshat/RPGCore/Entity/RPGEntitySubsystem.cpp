@@ -28,6 +28,7 @@ void URPGEntitySubsystem::Deinitialize()
     ValidateEntityIDFuncPtr = nullptr;
     ValidateEntityTypeFuncPtr = nullptr;
     FreeStringFuncPtr = nullptr;
+    CreateEntityErrorCompleteFuncPtr = nullptr;
     bFunctionsLoaded = false;
     ToolkitDLLHandle = nullptr;
     
@@ -170,6 +171,9 @@ void URPGEntitySubsystem::LoadDLLFunctions()
     // Load string management function
     FreeStringFuncPtr = (FreeStringFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("FreeString"));
     
+    // Load automatic cleanup function
+    CreateEntityErrorCompleteFuncPtr = (CreateEntityErrorCompleteFunc)FPlatformProcess::GetDllExport(ToolkitDLLHandle, TEXT("CreateEntityErrorComplete"));
+    
     // Check if functions were loaded
     bool bAllFunctionsLoaded = (GetEntityNotFoundErrorFuncPtr != nullptr) && 
                               (GetInvalidEntityErrorFuncPtr != nullptr) && 
@@ -179,7 +183,8 @@ void URPGEntitySubsystem::LoadDLLFunctions()
                               (GetInvalidTypeErrorFuncPtr != nullptr) &&
                               (ValidateEntityIDFuncPtr != nullptr) &&
                               (ValidateEntityTypeFuncPtr != nullptr) &&
-                              (FreeStringFuncPtr != nullptr);
+                              (FreeStringFuncPtr != nullptr) &&
+                              (CreateEntityErrorCompleteFuncPtr != nullptr);
     
     if (bAllFunctionsLoaded)
     {
@@ -198,6 +203,7 @@ void URPGEntitySubsystem::LoadDLLFunctions()
         UE_LOG(LogTemp, Error, TEXT("  ValidateEntityID: %s"), ValidateEntityIDFuncPtr ? TEXT("OK") : TEXT("FAILED"));
         UE_LOG(LogTemp, Error, TEXT("  ValidateEntityType: %s"), ValidateEntityTypeFuncPtr ? TEXT("OK") : TEXT("FAILED"));
         UE_LOG(LogTemp, Error, TEXT("  FreeString: %s"), FreeStringFuncPtr ? TEXT("OK") : TEXT("FAILED"));
+        UE_LOG(LogTemp, Error, TEXT("  CreateEntityErrorComplete: %s"), CreateEntityErrorCompleteFuncPtr ? TEXT("OK") : TEXT("FAILED"));
     }
 }
 
@@ -223,4 +229,45 @@ bool URPGEntitySubsystem::IsSafeToCallFunction() const
 {
     // Following RPGDiceSubsystem pattern for shutdown safety
     return bFunctionsLoaded && ToolkitDLLHandle != nullptr;
+}
+
+// Automatic Cleanup Entity Error Implementation
+FEntityErrorResult URPGEntitySubsystem::CreateEntityError(const FString& Operation, const FString& EntityType, const FString& EntityID, const FString& Message)
+{
+    if (!IsSafeToCallFunction() || !CreateEntityErrorCompleteFuncPtr)
+    {
+        return FEntityErrorResult(); // Invalid result
+    }
+    
+    // Convert FString to ANSICHAR*
+    FTCHARToUTF8 OpConverter(*Operation);
+    FTCHARToUTF8 TypeConverter(*EntityType);
+    FTCHARToUTF8 IDConverter(*EntityID);
+    FTCHARToUTF8 MsgConverter(*Message);
+    
+    ANSICHAR* outOp;
+    ANSICHAR* outType;
+    ANSICHAR* outID;
+    ANSICHAR* outMessage;
+    
+    int32 success = CreateEntityErrorCompleteFuncPtr(
+        OpConverter.Get(),
+        TypeConverter.Get(),
+        IDConverter.Get(),
+        MsgConverter.Get(),
+        &outOp, &outType, &outID, &outMessage
+    );
+    
+    if (success)
+    {
+        FEntityErrorResult Result(
+            ConvertAndFreeString(outOp),
+            ConvertAndFreeString(outType),
+            ConvertAndFreeString(outID),
+            ConvertAndFreeString(outMessage)
+        );
+        return Result;
+    }
+    
+    return FEntityErrorResult(); // Invalid result
 }
