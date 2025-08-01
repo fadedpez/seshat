@@ -4,6 +4,8 @@
 **Status:** Concept Exploration  
 **Related:** P007 Character Integration Implementation Plan  
 
+> **Note:** This concept exploration identified the character system possibilities and requirements. Implementation strategy has been updated based on rpg-api integration analysis - see [C004: RPG-API Integration Possibilities and Gaps Analysis](./C004-rpg-api-integration-possibilities-and-gaps.md) for the production implementation path.  
+
 ## Overview
 
 With our D&D 5e character integration complete (P007), we now have a powerful foundation that opens up numerous application possibilities. This document explores what we can build on top of our `RPGCharacterSubsystem` and `FCharacterResult` infrastructure.
